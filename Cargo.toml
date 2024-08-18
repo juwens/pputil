@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+cms = "0.2.3"
+dirs = "5.0.1"
+plist = "1.7.0"
