@@ -3,7 +3,7 @@ use chrono::{DateTime, Local};
 use der::Decode;
 use comfy_table::Table;
 use std::time::SystemTime;
-use tap::{prelude::Conv, Pipe};
+use tap::{Conv, Pipe};
 
 fn main() {
     let profiles_dir = dirs::home_dir().unwrap().join("Library/MobileDevice/Provisioning Profiles");
@@ -21,49 +21,52 @@ fn main() {
 
     println!();
 
+    let rows = paths.into_iter().map(|path| {
+        let pl = match parse_mobileprovision_into_plist(&path) {
+            Ok(x) => x,
+            Err(error) => panic!("Problem opening the file: {error:?}"),
+        };
+
+        let app_id_prefix = pl["ApplicationIdentifierPrefix"].as_array().unwrap();
+        let exp_date = pl["ExpirationDate"].as_date().unwrap().conv::<SystemTime>().conv::<DateTime<Local>>();
+        let entitlements = pl["Entitlements"].as_dictionary().unwrap();
+
+        return vec![
+            (*pl["AppIDName"].as_string().unwrap()).conv::<String>(),
+            (*pl["IsXcodeManaged"].as_boolean().unwrap().to_string()).conv::<String>(),
+            app_id_prefix.first().unwrap().as_string().unwrap().conv::<String>(),
+            entitlements["application-identifier"].as_string().unwrap().conv::<String>(),
+            exp_date.format("%Y-%m-%d").to_string().conv::<String>(),
+            entitlements.get("com.apple.developer.team-identifier").unwrap().as_string().unwrap().conv::<String>(),
+            path.file_name().unwrap().to_str().unwrap().conv::<String>(),
+        ];
+    }).collect::<Vec<_>>();
+
     let mut table = Table::new();
     table
-        .set_header(vec!["AppIDName", "XC mgd", "ApplId Prefix", "ent: app identifier", "expir. date", "ent: team-identifier", "file"]);
-
-    for path in paths {
-        let pl = parse_mobileprovision_into_plist(&path);
-
-        let app_id_prefix = &pl["ApplicationIdentifierPrefix"].as_array().unwrap();
-        let exp_date = pl["ExpirationDate"].as_date().unwrap().conv::<SystemTime>().conv::<DateTime<Local>>();
-        let entitlements = &pl["Entitlements"].as_dictionary().unwrap();
-
-        // println!("{:?}", json::stringify(entitlements));
-
-        table.add_row(vec![
-            pl["AppIDName"].as_string().unwrap(),
-            &pl["IsXcodeManaged"].as_boolean().unwrap().to_string(),
-            app_id_prefix.first().unwrap().as_string().unwrap(),
-            &entitlements["application-identifier"].as_string().unwrap(),
-            &exp_date.format("%Y-%m-%d").to_string(),
-            &entitlements.get("com.apple.developer.team-identifier").unwrap().as_string().unwrap(),
-            path.file_name().unwrap().to_str().unwrap()
-        ]);
-    }
+        .set_header(vec!["AppIDName", "XC mgd", "ApplId Prefix", "ent: app identifier", "expir. date", "ent: team-identifier", "file"])
+        .add_rows(rows);
 
     println!("{table}");
 
     println!();
 }
 
-fn parse_mobileprovision_into_plist(path: &std::path::PathBuf) -> plist::Dictionary {
-    let file_bytes = fs::read(path).unwrap();
+fn parse_mobileprovision_into_plist(path: &std::path::PathBuf) -> Result<plist::Dictionary, Box<dyn std::error::Error>> {
+    let file_bytes = fs::read(path)?;
 
-    let mut reader = der::SliceReader::new(&file_bytes).unwrap();
+    let mut reader = der::SliceReader::new(&file_bytes)?;
 
-    let ci = cms::content_info::ContentInfo::decode(reader.borrow_mut()).unwrap();
+    let ci = cms::content_info::ContentInfo::decode(reader.borrow_mut())?;
 
     assert_eq!(ci.content_type.to_string(), oid_registry::OID_PKCS7_ID_SIGNED_DATA.to_string());
-    let sd = ci.content.decode_as::<cms::signed_data::SignedData>().unwrap();
+    let sd = ci.content.decode_as::<cms::signed_data::SignedData>()?;
 
     assert_eq!(sd.encap_content_info.econtent_type.to_string(), oid_registry::OID_PKCS7_ID_DATA.to_string());
     
     let content = &sd.encap_content_info.econtent.unwrap();
 
-    let pl = content.value().pipe(plist::from_bytes::<plist::Dictionary>).unwrap();
-    return pl
+    let pl = content.value().pipe(plist::from_bytes::<plist::Dictionary>)?;
+    
+    return Ok(pl);
 }
