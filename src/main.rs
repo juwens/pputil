@@ -1,5 +1,6 @@
 use std::{borrow::BorrowMut, fs::{self}};
 use der::Decode;
+use comfy_table::Table;
 
 fn main() {
     let profiles_dir = dirs::home_dir().unwrap().join("Library/MobileDevice/Provisioning Profiles");
@@ -15,7 +16,11 @@ fn main() {
         })
         .collect::<Vec<_>>();
 
-    print_row("AppIDName", "ApplId Prefix", "expir. date", "file");
+    println!();
+
+    let mut table = Table::new();
+    table
+        .set_header(vec!["AppIDName", "ApplId Prefix", "expir. date", "ent: app identifier", "team-identifier", "file"]);
 
     for path in paths {
         // println!("Name: {}", path.display());
@@ -30,19 +35,19 @@ fn main() {
         let app_id_name = &pl["AppIDName"];
         let app_id_prefix = &pl["ApplicationIdentifierPrefix"].as_array().unwrap();
         let exp_date = &pl["ExpirationDate"].as_date().unwrap();
+        let entitlements = &pl["Entitlements"].as_dictionary().unwrap();
 
-        print_row(
+        table.add_row(vec![
             app_id_name.as_string().unwrap_or_default(),
             app_id_prefix.first().unwrap().as_string().unwrap(),
             &exp_date.to_xml_format(),
+            &entitlements["application-identifier"].as_string().unwrap(),
+            &entitlements.get("com.apple.developer.team-identifier").unwrap().as_string().unwrap(),
             path.file_name().unwrap().to_str().unwrap()
-        )
+        ]);
     }
-}
 
-fn print_row(a : &str, b : &str, c : &str, d : &str){
-    println!(
-        "{0: <20} | {1: <20} | {2: <20} | {3: <10}",
-        a, b, c, d
-    );
+    println!("{table}");
+
+    println!();
 }
