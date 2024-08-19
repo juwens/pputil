@@ -1,6 +1,9 @@
 use std::{borrow::BorrowMut, fs::{self}};
+use chrono::{DateTime, Local};
 use der::Decode;
 use comfy_table::Table;
+use std::time::SystemTime;
+use tap::{prelude::Conv, Pipe};
 
 fn main() {
     let profiles_dir = dirs::home_dir().unwrap().join("Library/MobileDevice/Provisioning Profiles");
@@ -20,28 +23,21 @@ fn main() {
 
     let mut table = Table::new();
     table
-        .set_header(vec!["AppIDName", "ApplId Prefix", "expir. date", "ent: app identifier", "team-identifier", "file"]);
+        .set_header(vec!["AppIDName", "XC mgd", "ApplId Prefix", "ent: app identifier", "expir. date", "ent: team-identifier", "file"]);
 
     for path in paths {
-        // println!("Name: {}", path.display());
+        let pl = parse_mobileprovision_into_plist(&path);
 
-        let file_bytes = fs::read(path.clone()).unwrap();
-        let mut reader = der::SliceReader::new(&file_bytes).unwrap();
-        let ci = cms::content_info::ContentInfo::decode(reader.borrow_mut()).unwrap();
-        let sd = ci.content.decode_as::<cms::signed_data::SignedData>().unwrap();
-        let content = &sd.encap_content_info.econtent.unwrap();
-        let pl = plist::from_bytes::<plist::Dictionary>(content.value()).unwrap();
-
-        let app_id_name = &pl["AppIDName"];
         let app_id_prefix = &pl["ApplicationIdentifierPrefix"].as_array().unwrap();
-        let exp_date = &pl["ExpirationDate"].as_date().unwrap();
+        let exp_date = pl["ExpirationDate"].as_date().unwrap().conv::<SystemTime>().conv::<DateTime<Local>>();
         let entitlements = &pl["Entitlements"].as_dictionary().unwrap();
 
         table.add_row(vec![
-            app_id_name.as_string().unwrap_or_default(),
+            pl["AppIDName"].as_string().unwrap(),
+            &pl["IsXcodeManaged"].as_boolean().unwrap().to_string(),
             app_id_prefix.first().unwrap().as_string().unwrap(),
-            &exp_date.to_xml_format(),
             &entitlements["application-identifier"].as_string().unwrap(),
+            &exp_date.format("%Y-%m-%d").to_string(),
             &entitlements.get("com.apple.developer.team-identifier").unwrap().as_string().unwrap(),
             path.file_name().unwrap().to_str().unwrap()
         ]);
@@ -50,4 +46,17 @@ fn main() {
     println!("{table}");
 
     println!();
+}
+
+fn parse_mobileprovision_into_plist(path: &std::path::PathBuf) -> plist::Dictionary {
+    let file_bytes = fs::read(path).unwrap();
+
+    let mut reader = der::SliceReader::new(&file_bytes).unwrap();
+
+    let ci = cms::content_info::ContentInfo::decode(reader.borrow_mut()).unwrap();
+    let sd = ci.content.decode_as::<cms::signed_data::SignedData>().unwrap();
+    let content = &sd.encap_content_info.econtent.unwrap();
+
+    let pl = content.value().pipe(plist::from_bytes::<plist::Dictionary>).unwrap();
+    return pl
 }
