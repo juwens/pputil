@@ -13,3 +13,4 @@ json = "0.12.4"
 oid-registry = { version = "0.7.0", features = ["crypto"] }
 plist = "1.7.0"
 tap = "1.0.1"
+yaml-rust2 = "0.8"

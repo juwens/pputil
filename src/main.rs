@@ -1,9 +1,21 @@
-use std::{borrow::BorrowMut, fs::{self}};
+use std::{borrow::{Borrow, BorrowMut}, fs::{self}};
 use chrono::{DateTime, Local};
 use der::Decode;
 use comfy_table::Table;
+use json::{object, JsonValue};
 use std::time::SystemTime;
 use tap::{Conv, Pipe};
+use yaml_rust2::{yaml, Yaml, YamlEmitter, YamlLoader};
+
+struct Row {
+    app_id_name: String,
+    is_xc_managed: bool,
+    app_id_prefixes: Vec<String>,
+    entitlements: JsonValue,
+    exp_date: String,
+    file_name: String,
+    misc: yaml::Yaml,
+}
 
 fn main() {
     let profiles_dir = dirs::home_dir().unwrap().join("Library/MobileDevice/Provisioning Profiles");
@@ -31,21 +43,52 @@ fn main() {
         let exp_date = pl["ExpirationDate"].as_date().unwrap().conv::<SystemTime>().conv::<DateTime<Local>>();
         let entitlements = pl["Entitlements"].as_dictionary().unwrap();
 
-        return vec![
-            (*pl["AppIDName"].as_string().unwrap()).conv::<String>(),
-            (*pl["IsXcodeManaged"].as_boolean().unwrap().to_string()).conv::<String>(),
-            app_id_prefix.first().unwrap().as_string().unwrap().conv::<String>(),
-            entitlements["application-identifier"].as_string().unwrap().conv::<String>(),
-            exp_date.format("%Y-%m-%d").to_string().conv::<String>(),
-            entitlements.get("com.apple.developer.team-identifier").unwrap().as_string().unwrap().conv::<String>(),
-            path.file_name().unwrap().to_str().unwrap().conv::<String>(),
-        ];
+
+        let platforms = (pl["Platform"].as_array().unwrap().into_iter())
+                .map(|x| x.as_string().unwrap())
+                .map(String::from)
+                .map(Yaml::String)
+                .collect::<Vec<_>>()
+                .pipe(|x| Yaml::Array(x));
+
+        let mut misc = yaml::Hash::new();
+        misc.insert(Yaml::String(String::from("platforms")), platforms);
+
+        return Row {
+            app_id_name: (*pl["AppIDName"].as_string().unwrap()).into(),
+            is_xc_managed: pl["IsXcodeManaged"].as_boolean().unwrap(),
+            app_id_prefixes: vec![ app_id_prefix.first().unwrap().as_string().unwrap().conv::<String>()],
+            entitlements: object!(
+                app_id: entitlements["application-identifier"].as_string().unwrap().conv::<String>(),
+                team_id: entitlements.get("com.apple.developer.team-identifier").unwrap().as_string().unwrap().conv::<String>(),
+            ),
+            exp_date: exp_date.format("%Y-%m-%d").to_string().conv::<String>(),
+            file_name: path.file_name().unwrap().to_str().unwrap().conv::<String>(),
+            misc: Yaml::Hash(misc),
+        };
     }).collect::<Vec<_>>();
 
     let mut table = Table::new();
     table
-        .set_header(vec!["AppIDName", "XC mgd", "ApplId Prefix", "ent: app identifier", "expir. date", "ent: team-identifier", "file"])
-        .add_rows(rows);
+        .set_header(vec!["AppIDName", "XC mgd", "ApplId Prefix", "Entitlements", "expir. date", "file"])
+        .add_rows(rows.into_iter().map(|x| {
+            let json = YamlLoader::load_from_str(x.entitlements.to_string().borrow()).unwrap();
+            let mut out_str = String::new();
+            YamlEmitter::new(&mut out_str).dump(&json[0]).unwrap();
+
+            let mut misc_out = String::new();
+            YamlEmitter::new(&mut misc_out).dump(&x.misc).unwrap();
+
+            return vec![
+                    x.app_id_name,
+                    x.is_xc_managed.to_string(),
+                    x.app_id_prefixes.join(", "),
+                    out_str,
+                    x.exp_date,
+                    misc_out,
+                    (x.file_name[..12].to_string() + "...").into()
+                ]
+        }));
 
     println!("{table}");
 
