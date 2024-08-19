@@ -52,7 +52,12 @@ fn main() {
                 .pipe(|x| Yaml::Array(x));
 
         let mut misc = yaml::Hash::new();
+        misc.insert(Yaml::String(String::from("name")), Yaml::String(pl["Name"].as_string().unwrap().into()));
+        misc.insert(Yaml::String(String::from("team name")), Yaml::String(pl["TeamName"].as_string().unwrap().into()));
         misc.insert(Yaml::String(String::from("platforms")), platforms);
+        misc.insert(Yaml::String(String::from("creation date")), Yaml::String(pl["CreationDate"].as_date().unwrap().to_xml_format()));
+        misc.insert(Yaml::String(String::from("provisioned devices")), Yaml::Integer(pl["ProvisionedDevices"].as_array().unwrap().len() as i64));
+
 
         return Row {
             app_id_name: (*pl["AppIDName"].as_string().unwrap()).into(),
@@ -70,7 +75,7 @@ fn main() {
 
     let mut table = Table::new();
     table
-        .set_header(vec!["AppIDName", "XC mgd", "ApplId Prefix", "Entitlements", "expir. date", "file"])
+        .set_header(vec!["AppIDName", "XC mgd", "ApplId Prefix", "Entitlements", "expir. date", "Misc", "file"])
         .add_rows(rows.into_iter().map(|x| {
             let json = YamlLoader::load_from_str(x.entitlements.to_string().borrow()).unwrap();
             let mut out_str = String::new();
@@ -83,9 +88,9 @@ fn main() {
                     x.app_id_name,
                     x.is_xc_managed.to_string(),
                     x.app_id_prefixes.join(", "),
-                    out_str,
+                    trim_yaml_start(&out_str),
                     x.exp_date,
-                    misc_out,
+                    trim_yaml_start(&misc_out),
                     (x.file_name[..12].to_string() + "...").into()
                 ]
         }));
@@ -112,4 +117,8 @@ fn parse_mobileprovision_into_plist(path: &std::path::PathBuf) -> Result<plist::
     let pl = content.value().pipe(plist::from_bytes::<plist::Dictionary>)?;
     
     return Ok(pl);
+}
+
+pub fn trim_yaml_start(s : &str) -> String {
+    return s.trim_start_matches('-').trim_start().into();
 }
