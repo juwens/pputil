@@ -32,6 +32,8 @@ fn main() {
         let exp_date = pl["ExpirationDate"].as_date().unwrap().conv::<SystemTime>().conv::<DateTime<Local>>();
         let entitlements = &pl["Entitlements"].as_dictionary().unwrap();
 
+        // println!("{:?}", json::stringify(entitlements));
+
         table.add_row(vec![
             pl["AppIDName"].as_string().unwrap(),
             &pl["IsXcodeManaged"].as_boolean().unwrap().to_string(),
@@ -54,7 +56,12 @@ fn parse_mobileprovision_into_plist(path: &std::path::PathBuf) -> plist::Diction
     let mut reader = der::SliceReader::new(&file_bytes).unwrap();
 
     let ci = cms::content_info::ContentInfo::decode(reader.borrow_mut()).unwrap();
+
+    assert_eq!(ci.content_type.to_string(), oid_registry::OID_PKCS7_ID_SIGNED_DATA.to_string());
     let sd = ci.content.decode_as::<cms::signed_data::SignedData>().unwrap();
+
+    assert_eq!(sd.encap_content_info.econtent_type.to_string(), oid_registry::OID_PKCS7_ID_DATA.to_string());
+    
     let content = &sd.encap_content_info.econtent.unwrap();
 
     let pl = content.value().pipe(plist::from_bytes::<plist::Dictionary>).unwrap();
