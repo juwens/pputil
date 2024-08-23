@@ -39,35 +39,37 @@ fn main() {
             Err(error) => panic!("Problem opening the file: {error:?}"),
         };
 
-        let app_id_prefix = pl["ApplicationIdentifierPrefix"].as_array().unwrap();
-        let exp_date = pl["ExpirationDate"].as_date().unwrap().conv::<SystemTime>().conv::<DateTime<Local>>();
-        
-        let platforms = (pl["Platform"].as_array().unwrap().into_iter())
-        .map(|x| x.as_string().unwrap())
-        .map(String::from)
-        .map(YamlValue::String)
-        .collect::<Vec<_>>();
-    
-        let mut misc = new_yaml_dict();
-        misc.insert("name".to_string(), YamlValue::String(pl["Name"].as_string().unwrap().to_owned()));
-        misc.insert("team name".to_string(), pl["TeamName"].as_string().unwrap().into());
-        misc.insert("platforms".to_string(), YamlValue::Sequence(platforms));
-        misc.insert("creation date".to_string(), YamlValue::String(pl["CreationDate"].as_date().unwrap().to_xml_format()));
-        misc.insert("provisioned devices".to_string(), YamlValue::Number((pl["ProvisionedDevices"].as_array().unwrap().len() as i64).into()));
-    
-        let entitlements = pl["Entitlements"].as_dictionary().unwrap();
-        let mut entitlements_out = new_yaml_dict();
-        entitlements_out.insert("app_id".into(), entitlements["application-identifier"].as_string().unwrap().into());
-        entitlements_out.insert("team_id".into(), entitlements["com.apple.developer.team-identifier"].as_string().unwrap().into());
-
         return Row {
             app_id_name: pl["AppIDName"].as_string().unwrap().into(),
             is_xc_managed: pl["IsXcodeManaged"].as_boolean().unwrap(),
-            app_id_prefixes: vec![ app_id_prefix.first().unwrap().as_string().unwrap().into()],
-            entitlements: entitlements_out,
-            exp_date: exp_date.format("%Y-%m-%d").to_string().into(),
+            app_id_prefixes: {
+                let prefixes  = pl["ApplicationIdentifierPrefix"].as_array().unwrap();
+                prefixes.iter().map(|x| x.as_string().unwrap().to_owned()).collect()
+            },
+            entitlements: {
+                let entitlements = pl["Entitlements"].as_dictionary().unwrap();
+                let mut entitlements_out = new_yaml_dict();
+                entitlements_out.insert("app_id".into(), entitlements["application-identifier"].as_string().unwrap().into());
+                entitlements_out.insert("team_id".into(), entitlements["com.apple.developer.team-identifier"].as_string().unwrap().into());
+                entitlements_out
+            },
+            exp_date: pl["ExpirationDate"].as_date().unwrap().conv::<SystemTime>().conv::<DateTime<Local>>().format("%Y-%m-%d").to_string(),
             file_name: path.file_name().unwrap().to_str().unwrap().into(),
-            misc: misc,
+            misc: {
+                let mut misc = new_yaml_dict();
+                misc.insert("name".to_string(), YamlValue::String(pl["Name"].as_string().unwrap().to_owned()));
+                misc.insert("team name".to_string(), pl["TeamName"].as_string().unwrap().into());
+                misc.insert("platforms".to_string(), YamlValue::Sequence(
+                    pl["Platform"].as_array().unwrap().into_iter()
+                        .map(|x| x.as_string().unwrap())
+                        .map(String::from)
+                        .map(YamlValue::String)
+                        .collect()
+                ));
+                misc.insert("creation date".to_string(), YamlValue::String(pl["CreationDate"].as_date().unwrap().to_xml_format()));
+                misc.insert("provisioned devices".to_string(), YamlValue::Number((pl["ProvisionedDevices"].as_array().unwrap().len() as i64).into()));
+                misc
+            },
         };
     });
 
