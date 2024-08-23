@@ -90,9 +90,9 @@ fn create_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
             row.app_id_name.clone(),
             format!("{}", row.is_xc_managed),
             row.app_id_prefixes.join(", "),
-            trim_yaml_start(&to_yaml_str(&row.entitlements)),
+            to_yaml_str(&row.entitlements),
             row.exp_date.clone(),
-            trim_yaml_start(&to_yaml_str(&row.misc)),
+            to_yaml_str(&row.misc),
             format!("{}...", &row.file_name[..12])
         ]);
     }
@@ -122,8 +122,4 @@ fn parse_mobileprovision_into_plist(path: &std::path::PathBuf) -> Result<plist::
     let pl = content.value().pipe(plist::from_bytes::<plist::Dictionary>)?;
     
     return Ok(pl);
-}
-
-pub fn trim_yaml_start(s : &str) -> String {
-    return s.trim_start_matches('-').trim_start().into();
 }
