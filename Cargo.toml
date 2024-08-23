@@ -9,8 +9,8 @@ cms = "0.2.3"
 comfy-table = "7.1.1"
 der = { version = "0.7.9", features = ["std"] }
 dirs = "5.0.1"
-json = "0.12.4"
 oid-registry = { version = "0.7.0", features = ["crypto"] }
 plist = "1.7.0"
+serde = "1.0.208"
+serde_yml = "0.0.11"
 tap = "1.0.1"
-yaml-rust2 = "0.8"
