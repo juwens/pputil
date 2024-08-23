@@ -1,7 +1,6 @@
 use std::{borrow::{Borrow, BorrowMut}, fs::{self}};
 use chrono::{DateTime, Local};
 use der::Decode;
-use comfy_table::Table;
 use json::{object, JsonValue};
 use std::time::SystemTime;
 use tap::{Conv, Pipe};
@@ -28,12 +27,11 @@ fn main() {
             } else {
                 None
             }
-        })
-        .collect::<Vec<_>>();
+        });
 
     println!();
 
-    let rows = paths.into_iter().map(|path| {
+    let rows = paths.map(|path| {
         let pl = match parse_mobileprovision_into_plist(&path) {
             Ok(x) => x,
             Err(error) => panic!("Problem opening the file: {error:?}"),
@@ -43,14 +41,13 @@ fn main() {
         let exp_date = pl["ExpirationDate"].as_date().unwrap().conv::<SystemTime>().conv::<DateTime<Local>>();
         let entitlements = pl["Entitlements"].as_dictionary().unwrap();
 
-
         let platforms = (pl["Platform"].as_array().unwrap().into_iter())
                 .map(|x| x.as_string().unwrap())
                 .map(String::from)
                 .map(Yaml::String)
                 .collect::<Vec<_>>()
                 .pipe(|x| Yaml::Array(x));
-
+        
         let mut misc = yaml::Hash::new();
         misc.insert(Yaml::String(String::from("name")), Yaml::String(pl["Name"].as_string().unwrap().into()));
         misc.insert(Yaml::String(String::from("team name")), Yaml::String(pl["TeamName"].as_string().unwrap().into()));
@@ -58,46 +55,52 @@ fn main() {
         misc.insert(Yaml::String(String::from("creation date")), Yaml::String(pl["CreationDate"].as_date().unwrap().to_xml_format()));
         misc.insert(Yaml::String(String::from("provisioned devices")), Yaml::Integer(pl["ProvisionedDevices"].as_array().unwrap().len() as i64));
 
-
         return Row {
-            app_id_name: (*pl["AppIDName"].as_string().unwrap()).into(),
+            app_id_name: (*pl["AppIDName"].as_string().unwrap()).to_owned(),
             is_xc_managed: pl["IsXcodeManaged"].as_boolean().unwrap(),
-            app_id_prefixes: vec![ app_id_prefix.first().unwrap().as_string().unwrap().conv::<String>()],
+            app_id_prefixes: vec![ app_id_prefix.first().unwrap().as_string().unwrap().to_owned()],
             entitlements: object!(
-                app_id: entitlements["application-identifier"].as_string().unwrap().conv::<String>(),
-                team_id: entitlements.get("com.apple.developer.team-identifier").unwrap().as_string().unwrap().conv::<String>(),
+                app_id: entitlements["application-identifier"].as_string().unwrap().to_owned(),
+                team_id: entitlements.get("com.apple.developer.team-identifier").unwrap().as_string().unwrap().to_owned(),
             ),
-            exp_date: exp_date.format("%Y-%m-%d").to_string().conv::<String>(),
-            file_name: path.file_name().unwrap().to_str().unwrap().conv::<String>(),
+            exp_date: exp_date.format("%Y-%m-%d").to_string().to_owned(),
+            file_name: path.file_name().unwrap().to_str().unwrap().to_owned(),
             misc: Yaml::Hash(misc),
         };
-    }).collect::<Vec<_>>();
+    });
 
-    let mut table = Table::new();
-    table
-        .set_header(vec!["AppIDName", "XC mgd", "ApplId Prefix", "Entitlements", "expir. date", "Misc", "file"])
-        .add_rows(rows.into_iter().map(|x| {
-            let json = YamlLoader::load_from_str(x.entitlements.to_string().borrow()).unwrap();
-            let mut out_str = String::new();
-            YamlEmitter::new(&mut out_str).dump(&json[0]).unwrap();
-
-            let mut misc_out = String::new();
-            YamlEmitter::new(&mut misc_out).dump(&x.misc).unwrap();
-
-            return vec![
-                    x.app_id_name,
-                    x.is_xc_managed.to_string(),
-                    x.app_id_prefixes.join(", "),
-                    trim_yaml_start(&out_str),
-                    x.exp_date,
-                    trim_yaml_start(&misc_out),
-                    (x.file_name[..12].to_string() + "...").into()
-                ]
-        }));
+    let table = create_table(rows);
 
     println!("{table}");
 
     println!();
+}
+
+fn create_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
+    let mut table =  comfy_table::Table::new();
+    table.set_header(vec!["AppIDName", "XC mgd", "ApplId Prefix", "Entitlements", "expir. date", "Misc", "file"]);
+
+    for row in rows {
+        let entitlements_yaml = YamlLoader::load_from_str(row.entitlements.to_string().borrow()).unwrap();
+
+        table.add_row(vec![
+            row.app_id_name.clone(),
+            format!("{}", row.is_xc_managed),
+            row.app_id_prefixes.join(", "),
+            trim_yaml_start(&to_yaml_str(&entitlements_yaml[0])),
+            row.exp_date.clone(),
+            trim_yaml_start(&to_yaml_str(&row.misc)),
+            format!("{}...", &row.file_name[..12])
+        ]);
+    }
+
+    return table;
+}
+
+fn to_yaml_str(value: &yaml::Yaml) -> String {
+    let mut misc_out = String::new();
+    YamlEmitter::new(&mut misc_out).dump(value).unwrap();
+    return misc_out;
 }
 
 fn parse_mobileprovision_into_plist(path: &std::path::PathBuf) -> Result<plist::Dictionary, Box<dyn std::error::Error>> {
