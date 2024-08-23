@@ -5,16 +5,17 @@ use der::Decode;
 use std::time::SystemTime;
 use tap::{Conv, Pipe};
 
-type ValueType = serde_yml::value::Value;
+type YamlValue = serde_yml::value::Value;
+type YamlDocument = BTreeMap<String, YamlValue>;
 
 struct Row {
     app_id_name: String,
     is_xc_managed: bool,
     app_id_prefixes: Vec<String>,
-    entitlements: BTreeMap<String, ValueType>,
+    entitlements: YamlDocument,
     exp_date: String,
     file_name: String,
-    misc: BTreeMap<String, ValueType>,
+    misc: YamlDocument,
 }
 
 fn main() {
@@ -44,28 +45,28 @@ fn main() {
         let platforms = (pl["Platform"].as_array().unwrap().into_iter())
         .map(|x| x.as_string().unwrap())
         .map(String::from)
-        .map(ValueType::String)
+        .map(YamlValue::String)
         .collect::<Vec<_>>();
     
         let mut misc = new_yaml_dict();
-        misc.insert("name".to_string(), ValueType::String(pl["Name"].as_string().unwrap().to_owned()));
+        misc.insert("name".to_string(), YamlValue::String(pl["Name"].as_string().unwrap().to_owned()));
         misc.insert("team name".to_string(), pl["TeamName"].as_string().unwrap().into());
-        misc.insert("platforms".to_string(), ValueType::Sequence(platforms));
-        misc.insert("creation date".to_string(), ValueType::String(pl["CreationDate"].as_date().unwrap().to_xml_format()));
-        misc.insert("provisioned devices".to_string(), ValueType::Number((pl["ProvisionedDevices"].as_array().unwrap().len() as i64).into()));
+        misc.insert("platforms".to_string(), YamlValue::Sequence(platforms));
+        misc.insert("creation date".to_string(), YamlValue::String(pl["CreationDate"].as_date().unwrap().to_xml_format()));
+        misc.insert("provisioned devices".to_string(), YamlValue::Number((pl["ProvisionedDevices"].as_array().unwrap().len() as i64).into()));
     
         let entitlements = pl["Entitlements"].as_dictionary().unwrap();
         let mut entitlements_out = new_yaml_dict();
         entitlements_out.insert("app_id".into(), entitlements["application-identifier"].as_string().unwrap().into());
-        entitlements_out.insert("team_id".into(), entitlements.get("com.apple.developer.team-identifier").unwrap().as_string().unwrap().into());
+        entitlements_out.insert("team_id".into(), entitlements["com.apple.developer.team-identifier"].as_string().unwrap().into());
 
         return Row {
-            app_id_name: (*pl["AppIDName"].as_string().unwrap()).to_owned(),
+            app_id_name: pl["AppIDName"].as_string().unwrap().into(),
             is_xc_managed: pl["IsXcodeManaged"].as_boolean().unwrap(),
-            app_id_prefixes: vec![ app_id_prefix.first().unwrap().as_string().unwrap().to_owned()],
+            app_id_prefixes: vec![ app_id_prefix.first().unwrap().as_string().unwrap().into()],
             entitlements: entitlements_out,
-            exp_date: exp_date.format("%Y-%m-%d").to_string().to_owned(),
-            file_name: path.file_name().unwrap().to_str().unwrap().to_owned(),
+            exp_date: exp_date.format("%Y-%m-%d").to_string().into(),
+            file_name: path.file_name().unwrap().to_str().unwrap().into(),
             misc: misc,
         };
     });
@@ -100,7 +101,7 @@ fn create_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
     return table;
 }
 
-fn to_yaml_str(value: &BTreeMap<String, ValueType>) -> String {
+fn to_yaml_str(value: &YamlDocument) -> String {
     let res = serde_yml::to_string(&value).unwrap();
     return res;
 }
