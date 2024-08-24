@@ -3,7 +3,7 @@ use der::Decode;
 use std::fs::{self};
 use std::time::SystemTime;
 use std::{borrow::BorrowMut, collections::BTreeMap};
-use tap::{Conv, Pipe};
+use tap::Pipe;
 
 type YamlValue = serde_yml::value::Value;
 type YamlDocument = BTreeMap<String, YamlValue>;
@@ -26,12 +26,13 @@ fn main() {
         .unwrap()
         .map(|dir_entry| dir_entry.unwrap().path())
         .filter_map(|path| {
-            match path
+            if path
                 .extension()
                 .map_or(false, |ext| ext == "mobileprovision")
             {
-                true => Some(path),
-                false => None,
+                Some(path)
+            } else {
+                None
             }
         });
 
@@ -75,8 +76,8 @@ fn main() {
             exp_date: pl["ExpirationDate"]
                 .as_date()
                 .unwrap()
-                .conv::<SystemTime>()
-                .conv::<DateTime<Local>>()
+                .pipe(SystemTime::from)
+                .pipe(DateTime::<Local>::from)
                 .format("%Y-%m-%d")
                 .to_string(),
 
@@ -178,7 +179,6 @@ fn parse_mobileprovision_into_plist(
     );
 
     let content = &sd.encap_content_info.econtent.unwrap();
-
     let pl = content
         .value()
         .pipe(plist::from_bytes::<plist::Dictionary>)?;
