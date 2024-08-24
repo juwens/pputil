@@ -171,7 +171,7 @@ fn parse_mobileprovision_into_plist(
         );
         let econtent = &sd.encap_content_info.econtent.unwrap();
         assert_eq!(econtent.tag(), der::Tag::OctetString);
-        let os = econtent.decode_as::<der::asn1::OctetString>()?;
+        let os = econtent.decode_as::<der::asn1::OctetStringRef>()?;
         plist::from_bytes::<plist::Dictionary>(os.as_bytes())?
     };
     return Ok(dict);
