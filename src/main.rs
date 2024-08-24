@@ -1,5 +1,5 @@
 use chrono::{DateTime, Local};
-use der::Decode;
+use der::{Decode, Tagged};
 use std::fs::{self};
 use std::time::SystemTime;
 use std::{borrow::BorrowMut, collections::BTreeMap};
@@ -82,10 +82,7 @@ fn main() {
                 .to_string(),
 
             misc: YamlDocument::from([
-                (
-                    "name".into(),
-                    pl["Name"].as_string().unwrap().into(),
-                ),
+                ("name".into(), pl["Name"].as_string().unwrap().into()),
                 (
                     "team name".to_string(),
                     pl["TeamName"].as_string().unwrap().into(),
@@ -158,22 +155,25 @@ fn parse_mobileprovision_into_plist(
     let mut reader = der::SliceReader::new(&file_bytes)?;
 
     let ci = cms::content_info::ContentInfo::decode(reader.borrow_mut())?;
-    assert_eq!(
-        ci.content_type.to_string(),
-        oid_registry::OID_PKCS7_ID_SIGNED_DATA.to_string()
-    );
-    
-    let sd = ci.content.decode_as::<cms::signed_data::SignedData>()?;
-    assert_eq!(
-        sd.encap_content_info.econtent_type.to_string(),
-        oid_registry::OID_PKCS7_ID_DATA.to_string()
-    );
 
-    let content_bytes = sd.encap_content_info.econtent
-        .unwrap()
-        .value()
-        .to_owned();
-    let dict = plist::from_bytes::<plist::Dictionary>(&content_bytes)?;
+    let sd = {
+        assert_eq!(
+            ci.content_type.to_string(),
+            oid_registry::OID_PKCS7_ID_SIGNED_DATA.to_string()
+        );
+        ci.content.decode_as::<cms::signed_data::SignedData>()?
+    };
+
+    let dict = {
+        assert_eq!(
+            sd.encap_content_info.econtent_type.to_string(),
+            oid_registry::OID_PKCS7_ID_DATA.to_string()
+        );
+        let econtent = &sd.encap_content_info.econtent.unwrap();
+        assert_eq!(econtent.tag(), der::Tag::OctetString);
+        let os = econtent.decode_as::<der::asn1::OctetString>()?;
+        plist::from_bytes::<plist::Dictionary>(os.as_bytes())?
+    };
     return Ok(dict);
 }
 
