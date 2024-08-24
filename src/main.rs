@@ -84,7 +84,7 @@ fn main() {
             misc: YamlDocument::from([
                 (
                     "name".to_string(),
-                    YamlValue::String(pl["Name"].as_string().unwrap().to_owned()),
+                    pl["Name"].as_string().unwrap().to_yaml(),
                 ),
                 (
                     "team name".to_string(),
@@ -98,24 +98,21 @@ fn main() {
                             .unwrap()
                             .into_iter()
                             .map(|x| x.as_string().unwrap())
-                            .map(String::from)
-                            .map(YamlValue::String)
+                            .map(ToYamlExt::to_yaml)
                             .collect(),
                     ),
                 ),
                 (
                     "creation date".to_string(),
-                    YamlValue::String(pl["CreationDate"].as_date().unwrap().to_xml_format()),
+                    pl["CreationDate"].as_date().unwrap().to_xml_format().to_yaml(),
                 ),
                 (
                     "provisioned devices".to_string(),
-                    YamlValue::Number(
-                        (pl["ProvisionedDevices"].as_array().unwrap().len() as i64).into(),
-                    ),
+                    (pl["ProvisionedDevices"].as_array().unwrap().len() as i64).to_yaml(),
                 ),
                 (
                     "file".into(),
-                    YamlValue::String(path.file_name().unwrap().to_str().unwrap().into()),
+                    path.file_name().unwrap().to_str().unwrap().to_yaml(),
                 ),
             ]),
         };
@@ -153,11 +150,6 @@ fn create_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
     return table;
 }
 
-fn to_yaml_str(value: &YamlDocument) -> String {
-    let res = serde_yml::to_string(&value).unwrap();
-    return res;
-}
-
 fn parse_mobileprovision_into_plist(
     path: &std::path::PathBuf,
 ) -> Result<plist::Dictionary, Box<dyn std::error::Error>> {
@@ -184,4 +176,32 @@ fn parse_mobileprovision_into_plist(
         .pipe(plist::from_bytes::<plist::Dictionary>)?;
 
     return Ok(pl);
+}
+
+
+fn to_yaml_str(value: &YamlDocument) -> String {
+    let res = serde_yml::to_string(&value).unwrap();
+    return res;
+}
+
+trait ToYamlExt {
+    fn to_yaml(self) -> serde_yml::Value;
+}
+
+impl ToYamlExt for String {
+    fn to_yaml(self) -> serde_yml::Value {
+        serde_yml::Value::String(self)
+    }
+}
+
+impl ToYamlExt for &str {
+    fn to_yaml(self) -> serde_yml::Value {
+        serde_yml::Value::String(self.into())
+    }
+}
+
+impl ToYamlExt for i64 {
+    fn to_yaml(self) -> serde_yml::Value {
+        serde_yml::Value::Number(self.into())
+    }
 }
