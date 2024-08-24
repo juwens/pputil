@@ -83,7 +83,7 @@ fn main() {
 
             misc: YamlDocument::from([
                 (
-                    "name".to_string(),
+                    "name".into(),
                     pl["Name"].as_string().unwrap().into(),
                 ),
                 (
@@ -91,7 +91,7 @@ fn main() {
                     pl["TeamName"].as_string().unwrap().into(),
                 ),
                 (
-                    "platforms".to_string(),
+                    "platforms".into(),
                     YamlValue::Sequence(
                         pl["Platform"]
                             .as_array()
@@ -158,24 +158,23 @@ fn parse_mobileprovision_into_plist(
     let mut reader = der::SliceReader::new(&file_bytes)?;
 
     let ci = cms::content_info::ContentInfo::decode(reader.borrow_mut())?;
-
     assert_eq!(
         ci.content_type.to_string(),
         oid_registry::OID_PKCS7_ID_SIGNED_DATA.to_string()
     );
+    
     let sd = ci.content.decode_as::<cms::signed_data::SignedData>()?;
-
     assert_eq!(
         sd.encap_content_info.econtent_type.to_string(),
         oid_registry::OID_PKCS7_ID_DATA.to_string()
     );
 
-    let content = &sd.encap_content_info.econtent.unwrap();
-    let pl = content
+    let content_bytes = sd.encap_content_info.econtent
+        .unwrap()
         .value()
-        .pipe(plist::from_bytes::<plist::Dictionary>)?;
-
-    return Ok(pl);
+        .to_owned();
+    let dict = plist::from_bytes::<plist::Dictionary>(&content_bytes)?;
+    return Ok(dict);
 }
 
 fn to_yaml_str(value: &YamlDocument) -> String {
