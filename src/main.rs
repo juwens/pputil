@@ -84,7 +84,7 @@ fn main() {
             misc: YamlDocument::from([
                 (
                     "name".to_string(),
-                    pl["Name"].as_string().unwrap().to_yaml(),
+                    pl["Name"].as_string().unwrap().into(),
                 ),
                 (
                     "team name".to_string(),
@@ -98,21 +98,21 @@ fn main() {
                             .unwrap()
                             .into_iter()
                             .map(|x| x.as_string().unwrap())
-                            .map(ToYamlExt::to_yaml)
+                            .map(YamlValue::from)
                             .collect(),
                     ),
                 ),
                 (
                     "creation date".to_string(),
-                    pl["CreationDate"].as_date().unwrap().to_xml_format().to_yaml(),
+                    pl["CreationDate"].as_date().unwrap().to_xml_format().into(),
                 ),
                 (
                     "provisioned devices".to_string(),
-                    (pl["ProvisionedDevices"].as_array().unwrap().len() as i64).to_yaml(),
+                    (pl["ProvisionedDevices"].as_array().unwrap().len() as i64).into(),
                 ),
                 (
                     "file".into(),
-                    path.file_name().unwrap().to_str().unwrap().to_yaml(),
+                    path.file_name().unwrap().to_str().unwrap().into(),
                 ),
             ]),
         };
@@ -178,30 +178,7 @@ fn parse_mobileprovision_into_plist(
     return Ok(pl);
 }
 
-
 fn to_yaml_str(value: &YamlDocument) -> String {
     let res = serde_yml::to_string(&value).unwrap();
     return res;
-}
-
-trait ToYamlExt {
-    fn to_yaml(self) -> serde_yml::Value;
-}
-
-impl ToYamlExt for String {
-    fn to_yaml(self) -> serde_yml::Value {
-        serde_yml::Value::String(self)
-    }
-}
-
-impl ToYamlExt for &str {
-    fn to_yaml(self) -> serde_yml::Value {
-        serde_yml::Value::String(self.into())
-    }
-}
-
-impl ToYamlExt for i64 {
-    fn to_yaml(self) -> serde_yml::Value {
-        serde_yml::Value::Number(self.into())
-    }
 }
