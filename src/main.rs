@@ -27,23 +27,12 @@ fn main() {
     dbg!(&args);
     println!("scanning directory: {:?}", &args.input_dir);
 
-    let paths = fs::read_dir(PathBuf::from(args.input_dir))
-        .unwrap()
-        .map(|dir_entry| dir_entry.unwrap().path())
-        .filter_map(|path| {
-            if path
-                .extension()
-                .map_or(false, |ext| ext == "mobileprovision")
-            {
-                Some(path)
-            } else {
-                None
-            }
-        });
+    let files = get_files(&args).collect::<Vec<_>>();
+    dbg!(&files);
 
     println!();
 
-    let rows = paths.map(|path| {
+    let rows = files.iter().map(|path| {
         let pl = match parse_mobileprovision_into_plist(&path) {
             Ok(x) => x,
             Err(error) => panic!("Problem opening the file: {error:?}"),
@@ -125,6 +114,23 @@ fn main() {
     println!("{table}");
 
     println!();
+}
+
+fn get_files(args: &args::ProcessedArgs) -> impl Iterator<Item = PathBuf> {
+    let files = fs::read_dir(PathBuf::from(&args.input_dir))
+        .unwrap()
+        .map(|dir_entry| dir_entry.unwrap().path())
+        .filter_map(|path| {
+            if path
+                .extension()
+                .map_or(false, |ext| ext == "mobileprovision")
+            {
+                Some(path)
+            } else {
+                None
+            }
+        });
+    files
 }
 
 fn create_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
