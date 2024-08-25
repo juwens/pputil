@@ -1,16 +1,21 @@
 [package]
 name = "provision_profile_viewer"
+authors = ["jens jaehrig"]
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 chrono = "0.4.38"
+clap = { version = "4.5.16", features = ["cargo"] }
 cms = "0.2.3"
 comfy-table = "7.1.1"
+const_format = "0.2.32"
 der = { version = "0.7.9", features = ["std"] }
 dirs = "5.0.1"
 oid-registry = { version = "0.7.0", features = ["crypto"] }
+paths-as-strings = "0.1.1"
 plist = "1.7.0"
-serde = "1.0.208"
-serde_yml = "0.0.11"
+serde = "1.0.209"
+serde_yml = "0.0.12"
+shellexpand = "3.1.0"
 tap = "1.0.1"
