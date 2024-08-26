@@ -37,7 +37,7 @@ pub fn get_processed_args() -> ProcessedArgs {
 
     let input_dir_str = paths_as_strings::encode_path({
         let path_buf = matches
-            .get_one::<PathBuf>(&dir_arg.get_id().as_str())
+            .get_one::<PathBuf>(dir_arg.get_id().as_str())
             .unwrap();
         path_buf
     });
@@ -51,7 +51,7 @@ pub fn get_processed_args() -> ProcessedArgs {
 
     ProcessedArgs {
         input_dir: input_dir_expanded,
-        table_mode: if matches.get_flag(&compact_arg.get_id().as_str()) {
+        table_mode: if matches.get_flag(compact_arg.get_id().as_str()) {
             TableMode::Copmpact
         } else {
             TableMode::Detailed

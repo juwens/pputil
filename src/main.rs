@@ -1,9 +1,9 @@
 use chrono::{DateTime, Local};
 use der::{Decode, Tagged};
+use std::collections::BTreeMap;
 use std::fs::{self};
 use std::path::Path;
 use std::time::SystemTime;
-use std::{borrow::BorrowMut, collections::BTreeMap};
 use tap::Pipe;
 
 mod args;
@@ -36,7 +36,7 @@ fn main() {
     println!();
 
     let rows = files.iter().map(|path| {
-        let pl = match parse_mobileprovision_into_plist(&path) {
+        let pl = match parse_mobileprovision_into_plist(path) {
             Ok(x) => x,
             Err(error) => panic!("Problem opening the file: {error:?}"),
         };
@@ -85,7 +85,7 @@ fn main() {
 
             name: pl["Name"].as_string().unwrap().into(),
             team_name: pl["TeamName"].as_string().unwrap().into(),
-            provisioned_devices: (pl["ProvisionedDevices"].as_array().unwrap().len() as i64).into(),
+            provisioned_devices: (pl["ProvisionedDevices"].as_array().unwrap().len() as i64),
             file_path: path.clone(),
 
             misc: YamlDocument::from([
@@ -100,7 +100,7 @@ fn main() {
                         pl["Platform"]
                             .as_array()
                             .unwrap()
-                            .into_iter()
+                            .iter()
                             .map(|x| x.as_string().unwrap())
                             .map(YamlValue::from)
                             .collect(),
@@ -174,8 +174,7 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
     return table;
 
     fn encode_to_yaml_str(value: &YamlDocument) -> String {
-        let res = serde_yml::to_string(&value).unwrap();
-        return res;
+        serde_yml::to_string(&value).unwrap()
     }
 }
 
@@ -208,7 +207,7 @@ fn create_compact_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
         ]);
     }
 
-    return table;
+    table
 }
 
 fn parse_mobileprovision_into_plist(
@@ -221,7 +220,7 @@ fn parse_mobileprovision_into_plist(
 
     let mut reader = der::SliceReader::new(&file_bytes)?;
 
-    let ci = cms::content_info::ContentInfo::decode(reader.borrow_mut())?;
+    let ci = cms::content_info::ContentInfo::decode(&mut reader)?;
 
     let sd = {
         assert_eq!(
@@ -241,5 +240,5 @@ fn parse_mobileprovision_into_plist(
         let os = econtent.decode_as::<der::asn1::OctetStringRef>()?;
         plist::from_bytes::<plist::Dictionary>(os.as_bytes())?
     };
-    return Ok(dict);
+    Ok(dict)
 }
