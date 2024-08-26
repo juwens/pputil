@@ -1,7 +1,7 @@
 use chrono::{DateTime, Local};
 use der::{Decode, Tagged};
 use std::fs::{self};
-use std::path::PathBuf;
+use std::path::Path;
 use std::time::SystemTime;
 use std::{borrow::BorrowMut, collections::BTreeMap};
 use tap::Pipe;
@@ -14,22 +14,25 @@ type YamlDocument = BTreeMap<String, YamlValue>;
 #[derive(Debug)]
 struct Row {
     app_id_name: String,
+    name: String,
+    team_name: String,
     is_xc_managed: bool,
     app_id_prefixes: Vec<String>,
     entitlements: YamlDocument,
     exp_date: String,
     misc: YamlDocument,
+    ent_app_id: String,
+    ent_team_id: String,
+    provisioned_devices: i64,
+    file_path: Box<Path>,
 }
 
 fn main() {
     let args = args::get_processed_args();
-
-    dbg!(&args);
-    println!("scanning directory: {:?}", &args.input_dir);
-
     let files = get_files(&args).collect::<Vec<_>>();
-    dbg!(&files);
 
+    println!();
+    println!("scanning directory: {:?}", &args.input_dir);
     println!();
 
     let rows = files.iter().map(|path| {
@@ -38,6 +41,7 @@ fn main() {
             Err(error) => panic!("Problem opening the file: {error:?}"),
         };
 
+        let ent = pl["Entitlements"].as_dictionary().unwrap();
         return Row {
             app_id_name: pl["AppIDName"].as_string().unwrap().into(),
             is_xc_managed: pl["IsXcodeManaged"].as_boolean().unwrap(),
@@ -50,8 +54,12 @@ fn main() {
                     .collect()
             },
 
+            ent_app_id: ent["application-identifier"].as_string().unwrap().into(),
+            ent_team_id: ent["com.apple.developer.team-identifier"]
+                .as_string()
+                .unwrap()
+                .into(),
             entitlements: {
-                let ent = pl["Entitlements"].as_dictionary().unwrap();
                 YamlDocument::from([
                     (
                         "app_id".into(),
@@ -74,6 +82,11 @@ fn main() {
                 .pipe(DateTime::<Local>::from)
                 .format("%Y-%m-%d")
                 .to_string(),
+
+            name: pl["Name"].as_string().unwrap().into(),
+            team_name: pl["TeamName"].as_string().unwrap().into(),
+            provisioned_devices: (pl["ProvisionedDevices"].as_array().unwrap().len() as i64).into(),
+            file_path: path.clone(),
 
             misc: YamlDocument::from([
                 ("name".into(), pl["Name"].as_string().unwrap().into()),
@@ -109,15 +122,18 @@ fn main() {
         };
     });
 
-    let table = create_table(rows);
+    let table = match args.table_mode {
+        args::TableMode::Copmpact => create_compact_table(rows),
+        args::TableMode::Detailed => create_detailed_table(rows),
+    };
 
     println!("{table}");
 
     println!();
 }
 
-fn get_files(args: &args::ProcessedArgs) -> impl Iterator<Item = PathBuf> {
-    let files = fs::read_dir(PathBuf::from(&args.input_dir))
+fn get_files(args: &args::ProcessedArgs) -> impl Iterator<Item = Box<Path>> {
+    let files = fs::read_dir(Path::new(&args.input_dir))
         .unwrap()
         .map(|dir_entry| dir_entry.unwrap().path())
         .filter_map(|path| {
@@ -125,7 +141,7 @@ fn get_files(args: &args::ProcessedArgs) -> impl Iterator<Item = PathBuf> {
                 .extension()
                 .map_or(false, |ext| ext == "mobileprovision")
             {
-                Some(path)
+                Some(path.into_boxed_path())
             } else {
                 None
             }
@@ -133,7 +149,7 @@ fn get_files(args: &args::ProcessedArgs) -> impl Iterator<Item = PathBuf> {
     files
 }
 
-fn create_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
+fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
     let mut table = comfy_table::Table::new();
     table.set_header(vec![
         "AppIDName",
@@ -150,8 +166,45 @@ fn create_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
             row.exp_date.clone(),
             format!("{}", if row.is_xc_managed { "Y" } else { "N" }),
             row.app_id_prefixes.join(", "),
-            to_yaml_str(&row.entitlements),
-            to_yaml_str(&row.misc),
+            encode_to_yaml_str(&row.entitlements),
+            encode_to_yaml_str(&row.misc),
+        ]);
+    }
+
+    return table;
+
+    fn encode_to_yaml_str(value: &YamlDocument) -> String {
+        let res = serde_yml::to_string(&value).unwrap();
+        return res;
+    }
+}
+
+fn create_compact_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
+    let mut table = comfy_table::Table::new();
+    table.set_header(vec![
+        "AppIDName",
+        "Name",
+        "expir. date",
+        "XC\nmgd",
+        "app id",
+        "team name",
+        "prvsnd\ndevices",
+        "file",
+    ]);
+
+    for row in rows {
+        table.add_row(vec![
+            row.app_id_name.clone(),
+            row.name,
+            row.exp_date.clone(),
+            format!("{}", if row.is_xc_managed { "Y" } else { "N" }),
+            row.ent_app_id,
+            row.team_name,
+            row.provisioned_devices.to_string(),
+            format!(
+                "{}...",
+                &row.file_path.file_name().unwrap().to_str().unwrap()[..12]
+            ),
         ]);
     }
 
@@ -159,9 +212,12 @@ fn create_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
 }
 
 fn parse_mobileprovision_into_plist(
-    path: &std::path::PathBuf,
+    file: &std::path::Path,
 ) -> Result<plist::Dictionary, Box<dyn std::error::Error>> {
-    let file_bytes = fs::read(path)?;
+    assert!(&file.is_file());
+    assert!(&file.is_absolute());
+
+    let file_bytes = fs::read(file)?;
 
     let mut reader = der::SliceReader::new(&file_bytes)?;
 
@@ -186,9 +242,4 @@ fn parse_mobileprovision_into_plist(
         plist::from_bytes::<plist::Dictionary>(os.as_bytes())?
     };
     return Ok(dict);
-}
-
-fn to_yaml_str(value: &YamlDocument) -> String {
-    let res = serde_yml::to_string(&value).unwrap();
-    return res;
 }
