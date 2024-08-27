@@ -42,10 +42,11 @@ fn main() {
         };
 
         let fallback_entitlements = plist::Dictionary::default();
-        let ent = pl.get("Entitlements")
-            .and_then(|x|x.as_dictionary())
+        let ent = pl
+            .get("Entitlements")
+            .and_then(|x| x.as_dictionary())
             .unwrap_or(&fallback_entitlements);
-        
+
         let provisioned_devices = pl
             .get("ProvisionedDevices")
             .and_then(|x| x.as_array())
@@ -149,11 +150,15 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
                     .map(|x| x.to_string())
                     .to_yaml_value(),
             ),
-            ("provisioned_devices".to_string(), row.provisioned_devices.to_yaml_value()),
+            (
+                "provisioned_devices".to_string(),
+                row.provisioned_devices.to_yaml_value(),
+            ),
             (
                 "file".into(),
-                row.file_path.file_name()
-                    .and_then(|x|x.to_str())
+                row.file_path
+                    .file_name()
+                    .and_then(|x| x.to_str())
                     .to_yaml_value(),
             ),
         ]);
