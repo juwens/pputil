@@ -10,7 +10,7 @@ use tap::Pipe;
 mod args;
 
 type YamlValue = serde_yml::value::Value;
-type YamlDocument = BTreeMap<String, YamlValue>;
+type YamlDocument = BTreeMap<String, Option<YamlValue>>;
 
 #[derive(Debug)]
 struct Row {
@@ -43,6 +43,9 @@ fn main() {
         };
 
         let ent = pl["Entitlements"].as_dictionary().unwrap();
+        let provisioned_devices = pl.get("ProvisionedDevices")
+                .and_then(|x| x.as_array())
+                .map(|x| x.len());
         return Row {
             app_id_name: pl["AppIDName"].as_string().unwrap().into(),
             is_xc_managed: pl["IsXcodeManaged"].as_boolean().unwrap(),
@@ -64,14 +67,14 @@ fn main() {
                 YamlDocument::from([
                     (
                         "app_id".into(),
-                        ent["application-identifier"].as_string().unwrap().into(),
+                        ent["application-identifier"].as_string()
+                            .map(|x| YamlValue::String(x.to_string())),
                     ),
                     (
                         "team_id".into(),
                         ent["com.apple.developer.team-identifier"]
                             .as_string()
-                            .unwrap()
-                            .into(),
+                            .map(|x| YamlValue::String(x.to_string())),
                     ),
                 ])
             },
@@ -86,40 +89,41 @@ fn main() {
 
             name: pl["Name"].as_string().unwrap().into(),
             team_name: pl["TeamName"].as_string().unwrap().into(),
-            provisioned_devices: pl.get("ProvisionedDevices")
-                .and_then(|x| x.as_array())
-                .map(|x| x.len()),
+            provisioned_devices,
             file_path: path.clone(),
 
             misc: YamlDocument::from([
-                ("name".into(), pl["Name"].as_string().unwrap().into()),
+                (
+                    "name".into(),
+                    pl["Name"].as_string().to_yaml_value(),
+                ),
                 (
                     "team name".to_string(),
-                    pl["TeamName"].as_string().unwrap().into(),
+                    pl["TeamName"].as_string().to_yaml_value(),
                 ),
                 (
                     "platforms".into(),
-                    YamlValue::Sequence(
+                    Some(YamlValue::Sequence(
                         pl["Platform"]
                             .as_array()
                             .unwrap()
                             .iter()
                             .map(|x| x.as_string().unwrap())
                             .map(YamlValue::from)
-                            .collect(),
+                            .collect()),
                     ),
                 ),
                 (
                     "creation date".to_string(),
-                    pl["CreationDate"].as_date().unwrap().to_xml_format().into(),
+                    pl["CreationDate"].as_date().map(|x| x.to_xml_format()).to_yaml_value(),
                 ),
                 (
                     "provisioned devices".to_string(),
-                    (pl["ProvisionedDevices"].as_array().unwrap().len() as i64).into(),
+                    provisioned_devices.map(|x| YamlValue::Number(x.into())),
                 ),
                 (
                     "file".into(),
-                    path.file_name().unwrap().to_str().unwrap().into(),
+                    path.file_name().unwrap().to_str().to_yaml_value(),
                 ),
             ]),
         };
@@ -244,4 +248,21 @@ fn parse_mobileprovision_into_plist(
         plist::from_bytes::<plist::Dictionary>(os.as_bytes())?
     };
     Ok(dict)
+}
+
+
+trait ToYamlValue<T, R> {
+    fn to_yaml_value(self: Self) -> R;
+}
+
+impl ToYamlValue<Option<&str>, Option<YamlValue>> for Option<&str> {
+    fn to_yaml_value(self: Self) -> Option<YamlValue> {
+        self.map(|x| YamlValue::String(x.to_string()))
+    }
+}
+
+impl ToYamlValue<Option<String>, Option<YamlValue>> for Option<String> {
+    fn to_yaml_value(self: Self) -> Option<YamlValue> {
+        self.map(|x| YamlValue::String(x))
+    }
 }
