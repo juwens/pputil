@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use std::fs::{self};
 use std::path::Path;
 use std::time::SystemTime;
+use std::vec;
 use tap::Pipe;
 
 mod args;
@@ -23,7 +24,7 @@ struct Row {
     misc: YamlDocument,
     ent_app_id: String,
     ent_team_id: String,
-    provisioned_devices: i64,
+    provisioned_devices: Option<usize>,
     file_path: Box<Path>,
 }
 
@@ -85,7 +86,9 @@ fn main() {
 
             name: pl["Name"].as_string().unwrap().into(),
             team_name: pl["TeamName"].as_string().unwrap().into(),
-            provisioned_devices: (pl["ProvisionedDevices"].as_array().unwrap().len() as i64),
+            provisioned_devices: pl.get("ProvisionedDevices")
+                .and_then(|x| x.as_array())
+                .map(|x| x.len()),
             file_path: path.clone(),
 
             misc: YamlDocument::from([
@@ -199,7 +202,7 @@ fn create_compact_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
             format!("{}", if row.is_xc_managed { "Y" } else { "N" }),
             row.ent_app_id,
             row.team_name,
-            row.provisioned_devices.to_string(),
+            row.provisioned_devices.map_or(String::from("n/a"), |x| x.to_string()),
             format!(
                 "{}...",
                 &row.file_path.file_name().unwrap().to_str().unwrap()[..12]
