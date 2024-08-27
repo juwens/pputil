@@ -5,7 +5,6 @@ use std::fs::{self};
 use std::path::Path;
 use std::time::SystemTime;
 use std::vec;
-use tap::Pipe;
 
 mod args;
 
@@ -14,18 +13,18 @@ type YamlDocument = BTreeMap<String, Option<YamlValue>>;
 
 #[derive(Debug)]
 struct Row {
-    app_id_name: String,
+    app_id_name: Option<String>,
     name: Option<String>,
-    team_name: String,
-    is_xc_managed: bool,
-    app_id_prefixes: Vec<String>,
-    entitlements: YamlDocument,
-    exp_date: String,
-    misc: YamlDocument,
-    ent_app_id: String,
-    ent_team_id: String,
+    team_name: Option<String>,
+    is_xc_managed: Option<bool>,
+    app_id_prefixes: Option<Vec<String>>,
+    exp_date: Option<SystemTime>,
+    creation_date: Option<SystemTime>,
+    ent_app_id: Option<String>,
+    ent_team_id: Option<String>,
     provisioned_devices: Option<usize>,
     file_path: Box<Path>,
+    platforms: Option<Vec<String>>,
 }
 
 fn main() {
@@ -42,90 +41,56 @@ fn main() {
             Err(error) => panic!("Problem opening the file: {error:?}"),
         };
 
-        let ent = pl["Entitlements"].as_dictionary().unwrap();
-        let provisioned_devices = pl.get("ProvisionedDevices")
-                .and_then(|x| x.as_array())
-                .map(|x| x.len());
+        let fallback_entitlements = plist::Dictionary::default();
+        let ent = pl.get("Entitlements")
+            .and_then(|x|x.as_dictionary())
+            .unwrap_or(&fallback_entitlements);
+        
+        let provisioned_devices = pl
+            .get("ProvisionedDevices")
+            .and_then(|x| x.as_array())
+            .map(|x| x.len());
+
         return Row {
-            app_id_name: pl["AppIDName"].as_string().unwrap().into(),
-            is_xc_managed: pl["IsXcodeManaged"].as_boolean().unwrap(),
-
+            app_id_name: pl.get("AppIDName").to_string(),
+            is_xc_managed: pl.get("IsXcodeManaged").and_then(|x| x.as_boolean()),
+            name: pl
+                .get("Name")
+                .and_then(|x| x.as_string())
+                .map(ToString::to_string),
             app_id_prefixes: {
-                let prefixes = pl["ApplicationIdentifierPrefix"].as_array().unwrap();
-                prefixes
-                    .iter()
-                    .map(|x| x.as_string().unwrap().to_owned())
-                    .collect()
+                let prefixes = pl
+                    .get("ApplicationIdentifierPrefix")
+                    .and_then(|x| x.as_array());
+                prefixes.map(|x| {
+                    x.iter()
+                        .map(|x| x.as_string().unwrap().to_owned())
+                        .collect()
+                })
             },
 
-            ent_app_id: ent["application-identifier"].as_string().unwrap().into(),
-            ent_team_id: ent["com.apple.developer.team-identifier"]
-                .as_string()
-                .unwrap()
-                .into(),
-            entitlements: {
-                YamlDocument::from([
-                    (
-                        "app_id".into(),
-                        ent["application-identifier"].as_string()
-                            .map(|x| YamlValue::String(x.to_string())),
-                    ),
-                    (
-                        "team_id".into(),
-                        ent["com.apple.developer.team-identifier"]
-                            .as_string()
-                            .map(|x| YamlValue::String(x.to_string())),
-                    ),
-                ])
-            },
+            ent_app_id: ent.get("application-identifier").to_string(),
+            ent_team_id: ent.get("com.apple.developer.team-identifier").to_string(),
 
-            exp_date: pl["ExpirationDate"]
-                .as_date()
-                .unwrap()
-                .pipe(SystemTime::from)
-                .pipe(DateTime::<Local>::from)
-                .format("%Y-%m-%d")
-                .to_string(),
+            exp_date: pl
+                .get("ExpirationDate")
+                .and_then(|x| x.as_date())
+                .map(SystemTime::from),
 
-            name: pl.get("Name").and_then(|x| x.as_string().map(|x| x.to_string())),
-            team_name: pl["TeamName"].as_string().unwrap().into(),
+            creation_date: pl
+                .get("CreationDate")
+                .and_then(|x| x.as_date())
+                .map(SystemTime::from),
+
+            team_name: pl.get("TeamName").to_string(),
             provisioned_devices,
             file_path: path.clone(),
-
-            misc: YamlDocument::from([
-                (
-                    "name".into(),
-                    pl["Name"].as_string().to_yaml_value(),
-                ),
-                (
-                    "team name".to_string(),
-                    pl["TeamName"].as_string().to_yaml_value(),
-                ),
-                (
-                    "platforms".into(),
-                    Some(YamlValue::Sequence(
-                        pl["Platform"]
-                            .as_array()
-                            .unwrap()
-                            .iter()
-                            .map(|x| x.as_string().unwrap())
-                            .map(YamlValue::from)
-                            .collect()),
-                    ),
-                ),
-                (
-                    "creation date".to_string(),
-                    pl["CreationDate"].as_date().map(|x| x.to_xml_format()).to_yaml_value(),
-                ),
-                (
-                    "provisioned devices".to_string(),
-                    provisioned_devices.map(|x| YamlValue::Number(x.into())),
-                ),
-                (
-                    "file".into(),
-                    path.file_name().unwrap().to_str().to_yaml_value(),
-                ),
-            ]),
+            platforms: pl.get("Platform").and_then(|x| x.as_array()).map(|x| {
+                x.iter()
+                    .map(|x| x.as_string().unwrap_or("n/a"))
+                    .map(String::from)
+                    .collect::<Vec<_>>()
+            }),
         };
     });
 
@@ -169,15 +134,45 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
 
     for row in rows {
         let misc = YamlDocument::from([
-            ("name".into(), row.name.to_yaml_value())
+            ("name".into(), row.name.to_yaml_value()),
+            ("team name".to_string(), row.team_name.to_yaml_value()),
+            (
+                "platforms".to_string(),
+                row.platforms.map(|x| {
+                    YamlValue::Sequence(x.iter().map(|x| YamlValue::String(x.to_owned())).collect())
+                }),
+            ),
+            (
+                "creation_date".to_string(),
+                row.creation_date
+                    .map(DateTime::<Local>::from)
+                    .map(|x| x.to_string())
+                    .to_yaml_value(),
+            ),
+            ("provisioned_devices".to_string(), row.provisioned_devices.to_yaml_value()),
+            (
+                "file".into(),
+                row.file_path.file_name()
+                    .and_then(|x|x.to_str())
+                    .to_yaml_value(),
+            ),
         ]);
 
         table.add_row(vec![
-            row.app_id_name.clone(),
-            row.exp_date.clone(),
-            format!("{}", if row.is_xc_managed { "Y" } else { "N" }),
-            row.app_id_prefixes.join(", "),
-            encode_to_yaml_str(&row.entitlements),
+            row.app_id_name.unwrap_or("n/a".to_string()),
+            row.exp_date
+                .map(DateTime::<Local>::from)
+                .map_or("n/a".to_string(), |x| x.format("%Y-%m-%d").to_string()),
+            format!(
+                "{}",
+                row.is_xc_managed
+                    .map_or("n/a", |x| if x { "Y" } else { "N" })
+            ),
+            row.app_id_prefixes.map(|x| x.join(", ")).unwrap_or_na(),
+            encode_to_yaml_str(&YamlDocument::from([
+                ("app id".to_string(), row.ent_app_id.to_yaml_value()),
+                ("team id".to_string(), row.ent_team_id.to_yaml_value()),
+            ])),
             encode_to_yaml_str(&misc),
         ]);
     }
@@ -204,13 +199,21 @@ fn create_compact_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
 
     for row in rows {
         table.add_row(vec![
-            row.app_id_name.clone(),
-            row.name.unwrap_or("n/a".to_string()),
-            row.exp_date.clone(),
-            format!("{}", if row.is_xc_managed { "Y" } else { "N" }),
-            row.ent_app_id,
-            row.team_name,
-            row.provisioned_devices.map_or(String::from("n/a"), |x| x.to_string()),
+            row.app_id_name.unwrap_or_na(),
+            row.name.unwrap_or_na(),
+            row.exp_date
+                .map(DateTime::<Local>::from)
+                .map(|x| x.format("%Y-%m-%d").to_string())
+                .unwrap_or_na(),
+            format!(
+                "{}",
+                row.is_xc_managed
+                    .map_or("n/a", |x| if x { "Y" } else { "N" })
+            ),
+            row.ent_app_id.unwrap_or_na(),
+            row.team_name.unwrap_or_na(),
+            row.provisioned_devices
+                .map_or(String::from("n/a"), |x| x.to_string()),
             format!(
                 "{}...",
                 &row.file_path.file_name().unwrap().to_str().unwrap()[..12]
@@ -254,6 +257,28 @@ fn parse_mobileprovision_into_plist(
     Ok(dict)
 }
 
+trait UnwrapOrNa {
+    fn unwrap_or_na(self) -> String;
+}
+
+const NOT_AVAILABLE: &str = "n/a";
+impl UnwrapOrNa for Option<String> {
+    fn unwrap_or_na(self) -> String {
+        self.map_or(NOT_AVAILABLE.to_owned(), |x| x.to_string())
+    }
+}
+
+impl UnwrapOrNa for Option<&str> {
+    fn unwrap_or_na(self) -> String {
+        self.map_or(NOT_AVAILABLE.to_owned(), |x| x.to_string())
+    }
+}
+
+impl UnwrapOrNa for Option<usize> {
+    fn unwrap_or_na(self) -> String {
+        self.map_or(NOT_AVAILABLE.to_owned(), |x| x.to_string())
+    }
+}
 
 trait ToYamlValue<T> {
     fn to_yaml_value(self) -> Option<YamlValue>;
@@ -268,5 +293,27 @@ impl ToYamlValue<Option<&str>> for Option<&str> {
 impl ToYamlValue<Option<String>> for Option<String> {
     fn to_yaml_value(self) -> Option<YamlValue> {
         self.map(YamlValue::String)
+    }
+}
+
+impl ToYamlValue<Option<usize>> for Option<usize> {
+    fn to_yaml_value(self) -> Option<YamlValue> {
+        self.map(|x| YamlValue::Number((x as i64).into()))
+    }
+}
+
+trait MyToString {
+    fn to_string(self) -> Option<String>;
+}
+
+impl MyToString for plist::Value {
+    fn to_string(self) -> Option<String> {
+        self.as_string().map(|x| x.to_string())
+    }
+}
+
+impl MyToString for Option<&plist::Value> {
+    fn to_string(self) -> Option<String> {
+        self.and_then(|x| x.as_string()).map(|x| x.to_string())
     }
 }
