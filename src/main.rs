@@ -15,7 +15,7 @@ type YamlDocument = BTreeMap<String, Option<YamlValue>>;
 #[derive(Debug)]
 struct Row {
     app_id_name: String,
-    name: String,
+    name: Option<String>,
     team_name: String,
     is_xc_managed: bool,
     app_id_prefixes: Vec<String>,
@@ -87,7 +87,7 @@ fn main() {
                 .format("%Y-%m-%d")
                 .to_string(),
 
-            name: pl["Name"].as_string().unwrap().into(),
+            name: pl.get("Name").and_then(|x| x.as_string().map(|x| x.to_string())),
             team_name: pl["TeamName"].as_string().unwrap().into(),
             provisioned_devices,
             file_path: path.clone(),
@@ -168,13 +168,17 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
     ]);
 
     for row in rows {
+        let misc = YamlDocument::from([
+            ("name".into(), row.name.to_yaml_value())
+        ]);
+
         table.add_row(vec![
             row.app_id_name.clone(),
             row.exp_date.clone(),
             format!("{}", if row.is_xc_managed { "Y" } else { "N" }),
             row.app_id_prefixes.join(", "),
             encode_to_yaml_str(&row.entitlements),
-            encode_to_yaml_str(&row.misc),
+            encode_to_yaml_str(&misc),
         ]);
     }
 
@@ -201,7 +205,7 @@ fn create_compact_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
     for row in rows {
         table.add_row(vec![
             row.app_id_name.clone(),
-            row.name,
+            row.name.unwrap_or("n/a".to_string()),
             row.exp_date.clone(),
             format!("{}", if row.is_xc_managed { "Y" } else { "N" }),
             row.ent_app_id,
