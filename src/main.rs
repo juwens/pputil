@@ -251,17 +251,17 @@ fn parse_mobileprovision_into_plist(
 }
 
 
-trait ToYamlValue<T, R> {
-    fn to_yaml_value(self) -> R;
+trait ToYamlValue<T> {
+    fn to_yaml_value(self) -> Option<YamlValue>;
 }
 
-impl ToYamlValue<Option<&str>, Option<YamlValue>> for Option<&str> {
+impl ToYamlValue<Option<&str>> for Option<&str> {
     fn to_yaml_value(self) -> Option<YamlValue> {
         self.map(|x| YamlValue::String(x.to_string()))
     }
 }
 
-impl ToYamlValue<Option<String>, Option<YamlValue>> for Option<String> {
+impl ToYamlValue<Option<String>> for Option<String> {
     fn to_yaml_value(self) -> Option<YamlValue> {
         self.map(YamlValue::String)
     }
