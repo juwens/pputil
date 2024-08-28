@@ -13,18 +13,18 @@ type YamlDocument = BTreeMap<String, Option<YamlValue>>;
 
 #[derive(Debug)]
 struct Row {
-    app_id_name: Option<String>,
-    name: Option<String>,
-    team_name: Option<String>,
+    app_id_name: Option<Box<str>>,
+    name: Option<Box<str>>,
+    team_name: Option<Box<str>>,
     is_xc_managed: Option<bool>,
-    app_id_prefixes: Option<Vec<String>>,
+    app_id_prefixes: Option<Vec<Box<str>>>,
     exp_date: Option<SystemTime>,
     creation_date: Option<SystemTime>,
-    ent_app_id: Option<String>,
-    ent_team_id: Option<String>,
+    ent_app_id: Option<Box<str>>,
+    ent_team_id: Option<Box<str>>,
     provisioned_devices: Option<usize>,
     file_path: Box<Path>,
-    platforms: Option<Vec<String>>,
+    platforms: Option<Vec<Box<str>>>,
 }
 
 fn main() {
@@ -53,25 +53,31 @@ fn main() {
             .map(|x| x.len());
 
         return Row {
-            app_id_name: pl.get("AppIDName").to_string(),
+            app_id_name: pl.get("AppIDName").to_str(),
             is_xc_managed: pl.get("IsXcodeManaged").and_then(|x| x.as_boolean()),
             name: pl
                 .get("Name")
                 .and_then(|x| x.as_string())
-                .map(ToString::to_string),
+                .map(|x| x.to_string().into_boxed_str()),
             app_id_prefixes: {
                 let prefixes = pl
                     .get("ApplicationIdentifierPrefix")
                     .and_then(|x| x.as_array());
                 prefixes.map(|x| {
                     x.iter()
-                        .map(|x| x.as_string().unwrap().to_owned())
+                        .map(|x| x.as_string().unwrap().to_owned().into_boxed_str())
                         .collect()
                 })
             },
 
-            ent_app_id: ent.get("application-identifier").to_string(),
-            ent_team_id: ent.get("com.apple.developer.team-identifier").to_string(),
+            ent_app_id: ent
+                .get("application-identifier")
+                .to_string()
+                .map(|x| x.into_boxed_str()),
+            ent_team_id: ent
+                .get("com.apple.developer.team-identifier")
+                .to_string()
+                .map(|x| x.into_boxed_str()),
 
             exp_date: pl
                 .get("ExpirationDate")
@@ -83,13 +89,14 @@ fn main() {
                 .and_then(|x| x.as_date())
                 .map(SystemTime::from),
 
-            team_name: pl.get("TeamName").to_string(),
+            team_name: pl.get("TeamName").to_string().map(|x| x.into_boxed_str()),
             provisioned_devices,
             file_path: path.clone(),
             platforms: pl.get("Platform").and_then(|x| x.as_array()).map(|x| {
                 x.iter()
                     .map(|x| x.as_string().unwrap_or("n/a"))
                     .map(String::from)
+                    .map(String::into_boxed_str)
                     .collect::<Vec<_>>()
             }),
         };
@@ -140,7 +147,11 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
             (
                 "platforms".to_string(),
                 row.platforms.map(|x| {
-                    YamlValue::Sequence(x.iter().map(|x| YamlValue::String(x.to_owned())).collect())
+                    YamlValue::Sequence(
+                        x.iter()
+                            .map(|x| YamlValue::String(x.to_owned().to_string()))
+                            .collect(),
+                    )
                 }),
             ),
             (
@@ -164,21 +175,23 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
         ]);
 
         table.add_row(vec![
-            row.app_id_name.unwrap_or("n/a".to_string()),
+            row.app_id_name.unwrap_or("n/a".into()),
             row.exp_date
                 .map(DateTime::<Local>::from)
-                .map_or("n/a".to_string(), |x| x.format("%Y-%m-%d").to_string()),
-            format!(
-                "{}",
-                row.is_xc_managed
-                    .map_or("n/a", |x| if x { "Y" } else { "N" })
-            ),
-            row.app_id_prefixes.map(|x| x.join(", ")).unwrap_or_na(),
+                .map_or("n/a".into(), |x| x.format("%Y-%m-%d").to_string().into()),
+            row.is_xc_managed
+                .map_or("n/a", |x| if x { "Y" } else { "N" })
+                .into(),
+            row.app_id_prefixes
+                .map(|x| x.join(", "))
+                .unwrap_or_na()
+                .into(),
             encode_to_yaml_str(&YamlDocument::from([
                 ("app id".to_string(), row.ent_app_id.to_yaml_value()),
                 ("team id".to_string(), row.ent_team_id.to_yaml_value()),
-            ])),
-            encode_to_yaml_str(&misc),
+            ]))
+            .into(),
+            encode_to_yaml_str(&misc).into(),
         ]);
     }
 
@@ -279,6 +292,12 @@ impl UnwrapOrNa for Option<&str> {
     }
 }
 
+impl UnwrapOrNa for Option<Box<str>> {
+    fn unwrap_or_na(self) -> String {
+        self.map_or(NOT_AVAILABLE.to_owned(), |x| x.to_string())
+    }
+}
+
 impl UnwrapOrNa for Option<usize> {
     fn unwrap_or_na(self) -> String {
         self.map_or(NOT_AVAILABLE.to_owned(), |x| x.to_string())
@@ -292,6 +311,12 @@ trait ToYamlValue<T> {
 impl ToYamlValue<Option<&str>> for Option<&str> {
     fn to_yaml_value(self) -> Option<YamlValue> {
         self.map(|x| YamlValue::String(x.to_string()))
+    }
+}
+
+impl ToYamlValue<Option<Box<str>>> for Option<Box<str>> {
+    fn to_yaml_value(self) -> Option<YamlValue> {
+        self.map(|x| YamlValue::String(x.into_string()))
     }
 }
 
@@ -309,16 +334,26 @@ impl ToYamlValue<Option<usize>> for Option<usize> {
 
 trait MyToString {
     fn to_string(self) -> Option<String>;
+    fn to_str(self) -> Option<Box<str>>;
 }
 
 impl MyToString for plist::Value {
     fn to_string(self) -> Option<String> {
         self.as_string().map(|x| x.to_string())
     }
+
+    fn to_str(self) -> Option<Box<str>> {
+        self.as_string().map(|x| x.to_string().into_boxed_str())
+    }
 }
 
 impl MyToString for Option<&plist::Value> {
     fn to_string(self) -> Option<String> {
         self.and_then(|x| x.as_string()).map(|x| x.to_string())
+    }
+
+    fn to_str(self) -> Option<Box<str>> {
+        self.and_then(|x| x.as_string())
+            .map(|x| x.to_string().into_boxed_str())
     }
 }
