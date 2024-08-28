@@ -312,7 +312,16 @@ fn to_yaml_value(val: &plist::Value) -> serde_yml::Value {
         plist::Value::Boolean(x) => YamlValue::Bool(*x),
         plist::Value::Date(x) => YamlValue::String(x.to_xml_format()),
         plist::Value::Data(_) => YamlValue::String("<base64 blob>".to_string()),
-        plist::Value::Array(x) => YamlValue::Sequence(x.iter().map(to_yaml_value).collect()),
+        plist::Value::Array(x) => {
+            if x.len() <= 10 {
+                YamlValue::Sequence(x.iter().map(to_yaml_value).collect())
+            } else {
+                YamlValue::Sequence(vec![
+                    YamlValue::String(format!("count: {}", x.len())),
+                    YamlValue::String("(abbreviated)".to_string()),
+                ])
+            }
+        }
         plist::Value::Dictionary(x) => YamlValue::Mapping({
             x.iter()
                 .map(|x| {
