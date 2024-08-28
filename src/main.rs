@@ -31,6 +31,7 @@ struct Row {
     file_path: Box<Path>,
     platforms: Option<Vec<Box<str>>>,
     local_provision: Option<bool>,
+    properties: YamlDocument,
 }
 
 fn main() {
@@ -110,6 +111,7 @@ fn main() {
                     .map(String::into_boxed_str)
                     .collect::<Vec<_>>()
             }),
+            properties: to_yaml_document(&pl),
         };
     });
 
@@ -152,65 +154,27 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
         "XC\nmgd",
         "Application\nIdentifier\nPrefix",
         "Properties",
-        "Entitlements",
     ]);
 
     for row in rows {
-        let misc = YamlDocument::from([
-            ("AppIDName".to_string(), row.app_id_name.to_yaml_value()),
-            ("team name".to_string(), row.team_name.to_yaml_value()),
-            (
-                "platforms".to_string(),
-                row.platforms.map(|x| {
-                    YamlValue::Sequence(
-                        x.iter()
-                            .map(|x| YamlValue::String(x.to_owned().to_string()))
-                            .collect(),
-                    )
-                }),
-            ),
-            (
-                "creation_date".to_string(),
-                row.creation_date
-                    .map(DateTime::<Local>::from)
-                    .map(|x| x.to_string())
-                    .to_yaml_value(),
-            ),
-            (
-                "provisioned_devices".to_string(),
-                row.provisioned_devices.to_yaml_value(),
-            ),
-            (
-                "file".into(),
-                row.file_path
-                    .file_name()
-                    .and_then(|x| x.to_str())
-                    .to_yaml_value(),
-            ),
-            ("LocalProvision".into(), row.local_provision.to_yaml_value()),
-        ]);
-
         table.add_row(vec![
             format!(
                 "Name: {}\n\nFile: {}",
                 row.name.unwrap_or("n/a".into()),
                 row.file_path.file_name().unwrap().to_string_lossy(),
-            ).as_str(),
+            )
+            .as_str(),
             row.exp_date
                 .map(DateTime::<Local>::from)
-                .map_or("n/a".into(), |x| x.format("%Y-%m-%d").to_string()).as_str(),
+                .map_or("n/a".into(), |x| x.format("%Y-%m-%d").to_string())
+                .as_str(),
             row.is_xc_managed
                 .map_or("n/a", |x| if x { "Y" } else { "N" }),
             row.app_id_prefixes
                 .map(|x| x.join(", "))
                 .unwrap_or_na()
                 .as_str(),
-            encode_to_yaml_str(&misc).as_str(),
-            encode_to_yaml_str(&YamlDocument::from([
-                ("app id".to_string(), row.ent_app_id.to_yaml_value()),
-                ("team id".to_string(), row.ent_team_id.to_yaml_value()),
-            ]))
-            .as_str(),
+            encode_to_yaml_str(&row.properties).as_str(),
         ]);
     }
 
@@ -325,40 +289,6 @@ impl UnwrapOrNa for Option<usize> {
     }
 }
 
-trait ToYamlValue {
-    fn to_yaml_value(self) -> Option<YamlValue>;
-}
-
-impl ToYamlValue for Option<&str> {
-    fn to_yaml_value(self) -> Option<YamlValue> {
-        self.map(|x| YamlValue::String(x.to_string()))
-    }
-}
-
-impl ToYamlValue for Option<Box<str>> {
-    fn to_yaml_value(self) -> Option<YamlValue> {
-        self.map(|x| YamlValue::String(x.into_string()))
-    }
-}
-
-impl ToYamlValue for Option<String> {
-    fn to_yaml_value(self) -> Option<YamlValue> {
-        self.map(YamlValue::String)
-    }
-}
-
-impl ToYamlValue for Option<usize> {
-    fn to_yaml_value(self) -> Option<YamlValue> {
-        self.map(|x| YamlValue::Number((x as i64).into()))
-    }
-}
-
-impl ToYamlValue for Option<bool> {
-    fn to_yaml_value(self) -> Option<YamlValue> {
-        self.map(YamlValue::Bool)
-    }
-}
-
 trait MyToString {
     fn to_string(self) -> Option<String>;
     fn to_str(self) -> Option<Box<str>>;
@@ -373,4 +303,34 @@ impl MyToString for Option<&plist::Value> {
         self.and_then(|x| x.as_string())
             .map(|x| x.to_string().into_boxed_str())
     }
+}
+
+fn to_yaml_value(val: &plist::Value) -> serde_yml::Value {
+    match val {
+        plist::Value::String(x) => YamlValue::String(x.to_string()),
+        plist::Value::Integer(x) => YamlValue::Number(x.as_signed().unwrap().into()),
+        plist::Value::Boolean(x) => YamlValue::Bool(*x),
+        plist::Value::Date(x) => YamlValue::String(x.to_xml_format()),
+        plist::Value::Data(_) => YamlValue::String("<base64 blob>".to_string()),
+        plist::Value::Array(x) => YamlValue::Sequence(x.iter().map(to_yaml_value).collect()),
+        plist::Value::Dictionary(x) => YamlValue::Mapping({
+            x.iter()
+                .map(|x| {
+                    (
+                        to_yaml_value(&plist::Value::String(x.0.to_string())),
+                        to_yaml_value(x.1),
+                    )
+                })
+                .collect()
+        }),
+        _ => YamlValue::String(core::any::type_name_of_val(val).to_string()),
+    }
+}
+
+fn to_yaml_document(pl: &plist::Dictionary) -> YamlDocument {
+    let items = pl.iter().map(|x| -> (String, Option<serde_yml::Value>) {
+        (x.0.to_owned(), Some(to_yaml_value(x.1)))
+    });
+
+    YamlDocument::from_iter(items)
 }
