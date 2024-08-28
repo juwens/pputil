@@ -13,7 +13,6 @@ use std::vec;
 
 mod args;
 
-
 type YamlValue = serde_yml::value::Value;
 type YamlDocument = BTreeMap<String, Option<YamlValue>>;
 
@@ -31,6 +30,7 @@ struct Row {
     provisioned_devices: Option<usize>,
     file_path: Box<Path>,
     platforms: Option<Vec<Box<str>>>,
+    local_provision: Option<bool>,
 }
 
 fn main() {
@@ -65,13 +65,18 @@ fn main() {
                 .get("Name")
                 .and_then(|x| x.as_string())
                 .map(|x| x.to_string().into_boxed_str()),
+            local_provision: pl.get("LocalProvision").and_then(|x| x.as_boolean()),
             app_id_prefixes: {
                 let prefixes = pl
                     .get("ApplicationIdentifierPrefix")
                     .and_then(|x| x.as_array());
                 prefixes.map(|x| {
                     x.iter()
-                        .map(|x| x.as_string().unwrap().to_owned().into_boxed_str())
+                        .map(|x| {
+                            x.as_string()
+                                .map_or(NOT_AVAILABLE.to_string(), |x| x.to_owned())
+                                .into_boxed_str()
+                        })
                         .collect()
                 })
             },
@@ -182,6 +187,10 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
                     .and_then(|x| x.to_str())
                     .to_yaml_value(),
             ),
+            (
+                "LocalProvision".into(),
+                row.local_provision.to_yaml_value(),
+            ),
         ]);
 
         table.add_row(vec![
@@ -204,7 +213,7 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
             encode_to_yaml_str(&misc).into(),
         ]);
     }
-    
+
     table
 }
 
@@ -215,6 +224,7 @@ fn create_compact_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
         "Name",
         "expir. date",
         "XC\nmgd",
+        "LP",
         "app id",
         "team name",
         "prvsnd\ndevices",
@@ -232,6 +242,11 @@ fn create_compact_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
             format!(
                 "{}",
                 row.is_xc_managed
+                    .map_or("n/a", |x| if x { "Y" } else { "N" })
+            ),
+            format!(
+                "{}",
+                row.local_provision
                     .map_or("n/a", |x| if x { "Y" } else { "N" })
             ),
             row.ent_app_id.unwrap_or_na(),
@@ -310,31 +325,37 @@ impl UnwrapOrNa for Option<usize> {
     }
 }
 
-trait ToYamlValue<T> {
+trait ToYamlValue {
     fn to_yaml_value(self) -> Option<YamlValue>;
 }
 
-impl ToYamlValue<Self> for Option<&str> {
+impl ToYamlValue for Option<&str> {
     fn to_yaml_value(self) -> Option<YamlValue> {
         self.map(|x| YamlValue::String(x.to_string()))
     }
 }
 
-impl ToYamlValue<Self> for Option<Box<str>> {
+impl ToYamlValue for Option<Box<str>> {
     fn to_yaml_value(self) -> Option<YamlValue> {
         self.map(|x| YamlValue::String(x.into_string()))
     }
 }
 
-impl ToYamlValue<Self> for Option<String> {
+impl ToYamlValue for Option<String> {
     fn to_yaml_value(self) -> Option<YamlValue> {
         self.map(YamlValue::String)
     }
 }
 
-impl ToYamlValue<Self> for Option<usize> {
+impl ToYamlValue for Option<usize> {
     fn to_yaml_value(self) -> Option<YamlValue> {
         self.map(|x| YamlValue::Number((x as i64).into()))
+    }
+}
+
+impl ToYamlValue for Option<bool> {
+    fn to_yaml_value(self) -> Option<YamlValue> {
+        self.map(YamlValue::Bool)
     }
 }
 
