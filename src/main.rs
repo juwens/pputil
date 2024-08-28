@@ -1,3 +1,8 @@
+// #![warn(
+//     clippy::pedantic,
+//     clippy::nursery,
+// )]
+
 use chrono::{DateTime, Local};
 use der::{Decode, Tagged};
 use std::collections::BTreeMap;
@@ -7,6 +12,7 @@ use std::time::SystemTime;
 use std::vec;
 
 mod args;
+
 
 type YamlValue = serde_yml::value::Value;
 type YamlDocument = BTreeMap<String, Option<YamlValue>>;
@@ -50,11 +56,11 @@ fn main() {
         let provisioned_devices = pl
             .get("ProvisionedDevices")
             .and_then(|x| x.as_array())
-            .map(|x| x.len());
+            .map(Vec::len);
 
         return Row {
             app_id_name: pl.get("AppIDName").to_str(),
-            is_xc_managed: pl.get("IsXcodeManaged").and_then(|x| x.as_boolean()),
+            is_xc_managed: pl.get("IsXcodeManaged").and_then(plist::Value::as_boolean),
             name: pl
                 .get("Name")
                 .and_then(|x| x.as_string())
@@ -73,23 +79,23 @@ fn main() {
             ent_app_id: ent
                 .get("application-identifier")
                 .to_string()
-                .map(|x| x.into_boxed_str()),
+                .map(String::into_boxed_str),
             ent_team_id: ent
                 .get("com.apple.developer.team-identifier")
                 .to_string()
-                .map(|x| x.into_boxed_str()),
+                .map(String::into_boxed_str),
 
             exp_date: pl
                 .get("ExpirationDate")
-                .and_then(|x| x.as_date())
+                .and_then(plist::Value::as_date)
                 .map(SystemTime::from),
 
             creation_date: pl
                 .get("CreationDate")
-                .and_then(|x| x.as_date())
+                .and_then(plist::Value::as_date)
                 .map(SystemTime::from),
 
-            team_name: pl.get("TeamName").to_string().map(|x| x.into_boxed_str()),
+            team_name: pl.get("TeamName").to_string().map(String::into_boxed_str),
             provisioned_devices,
             file_path: path.clone(),
             platforms: pl.get("Platform").and_then(|x| x.as_array()).map(|x| {
@@ -130,6 +136,10 @@ fn get_files(args: &args::ProcessedArgs) -> impl Iterator<Item = Box<Path>> {
 }
 
 fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
+    fn encode_to_yaml_str(value: &YamlDocument) -> String {
+        serde_yml::to_string(&value).unwrap()
+    }
+
     let mut table = comfy_table::Table::new();
     table.set_header(vec![
         "AppIDName",
@@ -194,12 +204,8 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
             encode_to_yaml_str(&misc).into(),
         ]);
     }
-
-    return table;
-
-    fn encode_to_yaml_str(value: &YamlDocument) -> String {
-        serde_yml::to_string(&value).unwrap()
-    }
+    
+    table
 }
 
 fn create_compact_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
@@ -282,13 +288,13 @@ trait UnwrapOrNa {
 const NOT_AVAILABLE: &str = "n/a";
 impl UnwrapOrNa for Option<String> {
     fn unwrap_or_na(self) -> String {
-        self.map_or(NOT_AVAILABLE.to_owned(), |x| x.to_string())
+        self.unwrap_or(NOT_AVAILABLE.to_owned())
     }
 }
 
 impl UnwrapOrNa for Option<&str> {
     fn unwrap_or_na(self) -> String {
-        self.map_or(NOT_AVAILABLE.to_owned(), |x| x.to_string())
+        self.map_or(NOT_AVAILABLE.to_owned(), ToString::to_string)
     }
 }
 
@@ -308,25 +314,25 @@ trait ToYamlValue<T> {
     fn to_yaml_value(self) -> Option<YamlValue>;
 }
 
-impl ToYamlValue<Option<&str>> for Option<&str> {
+impl ToYamlValue<Self> for Option<&str> {
     fn to_yaml_value(self) -> Option<YamlValue> {
         self.map(|x| YamlValue::String(x.to_string()))
     }
 }
 
-impl ToYamlValue<Option<Box<str>>> for Option<Box<str>> {
+impl ToYamlValue<Self> for Option<Box<str>> {
     fn to_yaml_value(self) -> Option<YamlValue> {
         self.map(|x| YamlValue::String(x.into_string()))
     }
 }
 
-impl ToYamlValue<Option<String>> for Option<String> {
+impl ToYamlValue<Self> for Option<String> {
     fn to_yaml_value(self) -> Option<YamlValue> {
         self.map(YamlValue::String)
     }
 }
 
-impl ToYamlValue<Option<usize>> for Option<usize> {
+impl ToYamlValue<Self> for Option<usize> {
     fn to_yaml_value(self) -> Option<YamlValue> {
         self.map(|x| YamlValue::Number((x as i64).into()))
     }
@@ -337,19 +343,9 @@ trait MyToString {
     fn to_str(self) -> Option<Box<str>>;
 }
 
-impl MyToString for plist::Value {
-    fn to_string(self) -> Option<String> {
-        self.as_string().map(|x| x.to_string())
-    }
-
-    fn to_str(self) -> Option<Box<str>> {
-        self.as_string().map(|x| x.to_string().into_boxed_str())
-    }
-}
-
 impl MyToString for Option<&plist::Value> {
     fn to_string(self) -> Option<String> {
-        self.and_then(|x| x.as_string()).map(|x| x.to_string())
+        self.and_then(|x| x.as_string()).map(ToString::to_string)
     }
 
     fn to_str(self) -> Option<Box<str>> {
