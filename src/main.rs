@@ -147,17 +147,17 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
 
     let mut table = comfy_table::Table::new();
     table.set_header(vec![
-        "AppIDName",
+        "Profile",
         "expir. date",
         "XC\nmgd",
-        "ApplId Prefix",
+        "Application\nIdentifier\nPrefix",
+        "Properties",
         "Entitlements",
-        "Misc",
     ]);
 
     for row in rows {
         let misc = YamlDocument::from([
-            ("name".into(), row.name.to_yaml_value()),
+            ("AppIDName".to_string(), row.app_id_name.to_yaml_value()),
             ("team name".to_string(), row.team_name.to_yaml_value()),
             (
                 "platforms".to_string(),
@@ -187,30 +187,30 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
                     .and_then(|x| x.to_str())
                     .to_yaml_value(),
             ),
-            (
-                "LocalProvision".into(),
-                row.local_provision.to_yaml_value(),
-            ),
+            ("LocalProvision".into(), row.local_provision.to_yaml_value()),
         ]);
 
         table.add_row(vec![
-            row.app_id_name.unwrap_or("n/a".into()),
+            format!(
+                "Name: {}\n\nFile: {}",
+                row.name.unwrap_or("n/a".into()),
+                row.file_path.file_name().unwrap().to_string_lossy(),
+            ).as_str(),
             row.exp_date
                 .map(DateTime::<Local>::from)
-                .map_or("n/a".into(), |x| x.format("%Y-%m-%d").to_string().into()),
+                .map_or("n/a".into(), |x| x.format("%Y-%m-%d").to_string()).as_str(),
             row.is_xc_managed
-                .map_or("n/a", |x| if x { "Y" } else { "N" })
-                .into(),
+                .map_or("n/a", |x| if x { "Y" } else { "N" }),
             row.app_id_prefixes
                 .map(|x| x.join(", "))
                 .unwrap_or_na()
-                .into(),
+                .as_str(),
+            encode_to_yaml_str(&misc).as_str(),
             encode_to_yaml_str(&YamlDocument::from([
                 ("app id".to_string(), row.ent_app_id.to_yaml_value()),
                 ("team id".to_string(), row.ent_team_id.to_yaml_value()),
             ]))
-            .into(),
-            encode_to_yaml_str(&misc).into(),
+            .as_str(),
         ]);
     }
 
@@ -220,12 +220,12 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
 fn create_compact_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
     let mut table = comfy_table::Table::new();
     table.set_header(vec![
+        "Profile Name",
         "AppIDName",
-        "Name",
-        "expir. date",
+        "ent: application-identifier",
+        "expir.\ndate",
         "XC\nmgd",
-        "LP",
-        "app id",
+        "lcl\nprv",
         "team name",
         "prvsnd\ndevices",
         "file",
@@ -233,8 +233,9 @@ fn create_compact_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
 
     for row in rows {
         table.add_row(vec![
-            row.app_id_name.unwrap_or_na(),
             row.name.unwrap_or_na(),
+            row.app_id_name.unwrap_or_na(),
+            row.ent_app_id.unwrap_or_na(),
             row.exp_date
                 .map(DateTime::<Local>::from)
                 .map(|x| x.format("%Y-%m-%d").to_string())
@@ -249,7 +250,6 @@ fn create_compact_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
                 row.local_provision
                     .map_or("n/a", |x| if x { "Y" } else { "N" })
             ),
-            row.ent_app_id.unwrap_or_na(),
             row.team_name.unwrap_or_na(),
             row.provisioned_devices
                 .map_or(String::from("n/a"), |x| x.to_string()),
