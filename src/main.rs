@@ -202,7 +202,13 @@ fn create_compact_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
             row.ent_app_id.unwrap_or_na(),
             row.exp_date
                 .map(DateTime::<Local>::from)
-                .map(|x| x.format("%Y-%m-%d").to_string())
+                .map(|x| {
+                    let mut s = x.format("%Y-%m-%d").to_string();
+                    if x.le(&chrono::Utc::now()) {
+                        s.push_str(" !!!");
+                    }
+                    s
+                })
                 .unwrap_or_na(),
             format!(
                 "{}",
