@@ -24,14 +24,17 @@ struct Row {
     is_xc_managed: Option<bool>,
     app_id_prefixes: Option<Vec<Box<str>>>,
     exp_date: Option<SystemTime>,
-    creation_date: Option<SystemTime>,
     ent_app_id: Option<Box<str>>,
-    ent_team_id: Option<Box<str>>,
     provisioned_devices: Option<usize>,
     file_path: Box<Path>,
-    platforms: Option<Vec<Box<str>>>,
     local_provision: Option<bool>,
     properties: YamlDocument,
+    #[allow(dead_code)]
+    creation_date: Option<SystemTime>,
+    #[allow(dead_code)]
+    ent_team_id: Option<Box<str>>,
+    #[allow(dead_code)]
+    platforms: Option<Vec<Box<str>>>,
 }
 
 fn main() {
@@ -106,7 +109,7 @@ fn main() {
             file_path: path.clone(),
             platforms: pl.get("Platform").and_then(|x| x.as_array()).map(|x| {
                 x.iter()
-                    .map(|x| x.as_string().unwrap_or("n/a"))
+                    .map(|x| x.as_string().unwrap_or(NOT_AVAILABLE))
                     .map(String::from)
                     .map(String::into_boxed_str)
                     .collect::<Vec<_>>()
@@ -160,16 +163,16 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
         table.add_row(vec![
             format!(
                 "Name: {}\n\nFile: {}",
-                row.name.unwrap_or("n/a".into()),
+                row.name.unwrap_or(NOT_AVAILABLE.into()),
                 row.file_path.file_name().unwrap().to_string_lossy(),
             )
             .as_str(),
             row.exp_date
                 .map(DateTime::<Local>::from)
-                .map_or("n/a".into(), |x| x.format("%Y-%m-%d").to_string())
+                .map_or(NOT_AVAILABLE.into(), |x| x.format("%Y-%m-%d").to_string())
                 .as_str(),
             row.is_xc_managed
-                .map_or("n/a", |x| if x { "Y" } else { "N" }),
+                .map_or(NOT_AVAILABLE, |x| if x { "Y" } else { "N" }),
             row.app_id_prefixes
                 .map(|x| x.join(", "))
                 .unwrap_or_na()
@@ -213,16 +216,16 @@ fn create_compact_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
             format!(
                 "{}",
                 row.is_xc_managed
-                    .map_or("n/a", |x| if x { "Y" } else { "N" })
+                    .map_or(NOT_AVAILABLE, |x| if x { "Y" } else { "N" })
             ),
             format!(
                 "{}",
                 row.local_provision
-                    .map_or("n/a", |x| if x { "Y" } else { "N" })
+                    .map_or(NOT_AVAILABLE, |x| if x { "Y" } else { "N" })
             ),
             row.team_name.unwrap_or_na(),
             row.provisioned_devices
-                .map_or(String::from("n/a"), |x| x.to_string()),
+                .map_or(String::from(NOT_AVAILABLE), |x| x.to_string()),
             format!(
                 "{}...",
                 &row.file_path.file_name().unwrap().to_str().unwrap()[..12]
@@ -270,7 +273,7 @@ trait UnwrapOrNa {
     fn unwrap_or_na(self) -> String;
 }
 
-const NOT_AVAILABLE: &str = "n/a";
+const NOT_AVAILABLE: &str = "_";
 impl UnwrapOrNa for Option<String> {
     fn unwrap_or_na(self) -> String {
         self.unwrap_or(NOT_AVAILABLE.to_owned())
