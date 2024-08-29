@@ -194,7 +194,7 @@ fn create_compact_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
         "XC\nmgd",
         "lcl\nprv",
         "team name",
-        "prvsnd\ndevices",
+        "prv\ndvc",
         "file",
     ]);
 
