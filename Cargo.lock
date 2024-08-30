@@ -191,6 +191,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed6719fffa43d0d87e5fd8caeab59be1554fb028cd30edc88fc4369b17971019"
 dependencies = [
  "clap_builder",
+ "clap_derive",
 ]
 
 [[package]]
@@ -203,6 +204,18 @@ dependencies = [
  "anstyle",
  "clap_lex",
  "strsim",
+]
+
+[[package]]
+name = "clap_derive"
+version = "4.5.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "501d359d5f3dcaf6ecdeee48833ae73ec6e42723a1e52419c79abf9507eec0a0"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -635,7 +648,6 @@ dependencies = [
  "serde",
  "serde_yml",
  "shellexpand",
- "tap",
 ]
 
 [[package]]
@@ -815,12 +827,6 @@ dependencies = [
  "quote",
  "syn",
 ]
-
-[[package]]
-name = "tap"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
 name = "thiserror"
