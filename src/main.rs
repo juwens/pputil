@@ -22,9 +22,12 @@ struct Row {
     app_id_name: Option<Box<str>>,
     name: Option<Box<str>>,
     team_name: Option<Box<str>>,
+    /// is Xcode managed
     is_xc_managed: Option<bool>,
     app_id_prefixes: Option<Vec<Box<str>>>,
+    /// expiration date
     exp_date: Option<SystemTime>,
+    /// entitlements.application-identifier
     ent_app_id: Option<Box<str>>,
     provisioned_devices: Option<usize>,
     file_path: Box<Path>,
