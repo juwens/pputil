@@ -5,6 +5,7 @@
 
 use args::{Cli, CompactSortBy};
 use chrono::{DateTime, Local};
+use comfy_table::Cell;
 use der::{Decode, Tagged};
 use std::collections::BTreeMap;
 use std::fs::{self};
@@ -23,7 +24,7 @@ struct Row {
     name: Option<Box<str>>,
     team_name: Option<Box<str>>,
     /// is Xcode managed
-    is_xc_managed: Option<bool>,
+    xc_managed: Option<bool>,
     app_id_prefixes: Option<Vec<Box<str>>>,
     /// expiration date
     exp_date: Option<SystemTime>,
@@ -32,6 +33,7 @@ struct Row {
     provisioned_devices: Option<usize>,
     file_path: Box<Path>,
     local_provision: Option<bool>,
+    uuid: Option<Box<str>>,
     properties: YamlDocument,
     #[allow(dead_code)]
     creation_date: Option<SystemTime>,
@@ -39,6 +41,12 @@ struct Row {
     ent_team_id: Option<Box<str>>,
     #[allow(dead_code)]
     platforms: Option<Vec<Box<str>>>,
+}
+
+#[derive(Debug)]
+enum WidthMode {
+    Small,
+    Unlimited,
 }
 
 fn main() {
@@ -67,8 +75,8 @@ fn main() {
             .map(Vec::len);
 
         return Row {
-            app_id_name: pl.get("AppIDName").to_str(),
-            is_xc_managed: pl.get("IsXcodeManaged").and_then(plist::Value::as_boolean),
+            app_id_name: pl.get("AppIDName").as_box_str(),
+            xc_managed: pl.get("IsXcodeManaged").and_then(plist::Value::as_boolean),
             name: pl
                 .get("Name")
                 .and_then(|x| x.as_string())
@@ -88,15 +96,8 @@ fn main() {
                         .collect()
                 })
             },
-
-            ent_app_id: ent
-                .get("application-identifier")
-                .to_string()
-                .map(String::into_boxed_str),
-            ent_team_id: ent
-                .get("com.apple.developer.team-identifier")
-                .to_string()
-                .map(String::into_boxed_str),
+            ent_app_id: ent.get("application-identifier").as_box_str(),
+            ent_team_id: ent.get("com.apple.developer.team-identifier").as_box_str(),
 
             exp_date: pl
                 .get("ExpirationDate")
@@ -108,9 +109,10 @@ fn main() {
                 .and_then(plist::Value::as_date)
                 .map(SystemTime::from),
 
-            team_name: pl.get("TeamName").to_string().map(String::into_boxed_str),
+            team_name: pl.get("TeamName").as_box_str(),
             provisioned_devices,
             file_path: path.clone(),
+            uuid: pl.get("UUID").as_box_str(),
             platforms: pl.get("Platform").and_then(|x| x.as_array()).map(|x| {
                 x.iter()
                     .map(|x| x.as_string().unwrap_or(NOT_AVAILABLE))
@@ -175,7 +177,7 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
                 .map(DateTime::<Local>::from)
                 .map_or(NOT_AVAILABLE.into(), |x| x.format("%Y-%m-%d").to_string())
                 .as_str(),
-            row.is_xc_managed
+            row.xc_managed
                 .map_or(NOT_AVAILABLE, |x| if x { "Y" } else { "N" }),
             row.app_id_prefixes
                 .map(|x| x.join(", "))
@@ -190,16 +192,21 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
 
 fn create_compact_table(iter: impl Iterator<Item = Row>, args: &Cli) -> comfy_table::Table {
     let mut table = comfy_table::Table::new();
+    table
+        .load_preset(comfy_table::presets::UTF8_FULL)
+        .apply_modifier(comfy_table::modifiers::UTF8_ROUND_CORNERS)
+        .set_content_arrangement(comfy_table::ContentArrangement::Dynamic);
+
     table.set_header(vec![
         "Profile Name",
-        "AppIDName",
+        "App ID Name",
         "Entitlements:\napplication-identifier",
         "expir.\ndate",
         "XC\nmgd",
         "lcl\nprv",
         "team name",
         "prv\ndvc",
-        "file",
+        "UUID",
     ]);
 
     let mut rows = iter.collect::<Vec<_>>();
@@ -224,38 +231,41 @@ fn create_compact_table(iter: impl Iterator<Item = Row>, args: &Cli) -> comfy_ta
         }
     };
 
+    let width = match dbg!(termsize::get().unwrap().cols) {
+        ..=250 => WidthMode::Small,
+        _ => WidthMode::Unlimited,
+    };
+    dbg!(&width);
+
     for row in rows {
         table.add_row(vec![
-            row.name.unwrap_or_na(),
-            row.app_id_name.unwrap_or_na(),
-            row.ent_app_id.unwrap_or_na(),
+            row.name.unwrap_or_na().into_cell(),
+            row.app_id_name.unwrap_or_na().into_cell(),
+            row.ent_app_id.unwrap_or_na().truncate_ex(&width, 40).into_cell(),
             row.exp_date
                 .map(DateTime::<Local>::from)
                 .map(|x| {
-                    let mut s = x.format("%Y-%m-%d").to_string();
+                    let s = x.format("%Y-%m-%d").to_string();
+                    let c = Cell::new(s);
                     if x.le(&chrono::Utc::now()) {
-                        s.push_str(" !!!");
+                        return c.fg(comfy_table::Color::Red);
                     }
-                    s
+                    c
                 })
-                .unwrap_or_na(),
-            format!(
-                "{}",
-                row.is_xc_managed
-                    .map_or(NOT_AVAILABLE, |x| if x { "Y" } else { "N" })
-            ),
-            format!(
-                "{}",
-                row.local_provision
-                    .map_or(NOT_AVAILABLE, |x| if x { "Y" } else { "N" })
-            ),
-            row.team_name.unwrap_or_na(),
+                .unwrap_or_else(|| Cell::new(NOT_AVAILABLE)),
+            row.xc_managed
+                .map_or(NOT_AVAILABLE, |x| if x { "Y" } else { "N" })
+                .to_string()
+                .into_cell(),
+            row.local_provision
+                .map_or(NOT_AVAILABLE, |x| if x { "Y" } else { "N" })
+                .to_string()
+                .into_cell(),
+            row.team_name.unwrap_or_na().truncate_ex(&width, 12).into_cell(),
             row.provisioned_devices
-                .map_or(String::from(NOT_AVAILABLE), |x| x.to_string()),
-            format!(
-                "{}...",
-                &row.file_path.file_name().unwrap().to_str().unwrap()[..12]
-            ),
+                .map_or(String::from(NOT_AVAILABLE), |x| x.to_string())
+                .into_cell(),
+            row.uuid.unwrap_or_na().truncate_ex(&width, 6).into_cell(),
         ]);
     }
 
@@ -324,22 +334,6 @@ impl UnwrapOrNa for Option<usize> {
     }
 }
 
-trait MyToString {
-    fn to_string(self) -> Option<String>;
-    fn to_str(self) -> Option<Box<str>>;
-}
-
-impl MyToString for Option<&plist::Value> {
-    fn to_string(self) -> Option<String> {
-        self.and_then(|x| x.as_string()).map(ToString::to_string)
-    }
-
-    fn to_str(self) -> Option<Box<str>> {
-        self.and_then(|x| x.as_string())
-            .map(|x| x.to_string().into_boxed_str())
-    }
-}
-
 fn to_yaml_value(val: &plist::Value) -> serde_yml::Value {
     match val {
         plist::Value::String(x) => YamlValue::String(x.to_string()),
@@ -379,12 +373,55 @@ fn to_yaml_document(pl: &plist::Dictionary) -> YamlDocument {
     YamlDocument::from_iter(items)
 }
 
+
+trait MyToString {
+    fn to_string(self) -> Option<String>;
+}
 impl MyToString for Option<SystemTime> {
     fn to_string(self) -> Option<String> {
         self.map(DateTime::<Local>::from).map(|x| x.to_string())
     }
+}
 
-    fn to_str(self) -> Option<Box<str>> {
-        todo!()
+trait IntoCell {
+    fn into_cell(self) -> Cell;
+}
+
+impl IntoCell for String {
+    fn into_cell(self) -> Cell {
+        Cell::new(self)
+    }
+}
+
+trait Truncate {
+    fn truncate(&self, count: usize) -> Self;
+    fn truncate_ex(self, mode: &WidthMode, s_len: usize) -> Self;
+}
+
+impl Truncate for String {
+    fn truncate(&self, count: usize) -> String {
+        match self.len() <= count {
+            true => self.to_owned(),
+            false => format!("{}...", &self[..count]),
+        }
+    }
+
+    fn truncate_ex(self, mode: &WidthMode, s_len: usize) -> Self {
+        match mode {
+            WidthMode::Small => self.truncate(s_len),
+            WidthMode::Unlimited => self,
+        }
+    }
+}
+
+trait OptValueAsBoxStr {
+    fn as_box_str(&self) -> Option<Box<str>>;
+}
+
+impl OptValueAsBoxStr for Option<&plist::Value> {
+    fn as_box_str(&self) -> Option<Box<str>> {
+        self
+            .and_then(plist::Value::as_string)
+            .map(Box::from)
     }
 }
