@@ -3,7 +3,7 @@
 //     clippy::nursery,
 // )]
 
-use args::{CompactSortBy, ProcessedArgs};
+use args::{CompactSortBy, Args};
 use chrono::{DateTime, Local};
 use der::{Decode, Tagged};
 use std::collections::BTreeMap;
@@ -39,11 +39,11 @@ struct Row {
 }
 
 fn main() {
-    let args: ProcessedArgs = args::get_processed_args();
+    let args = args::get_processed_args();
     let files = get_files(&args).collect::<Vec<_>>();
 
     println!();
-    println!("scanning directory: {:?}", &args.input_dir);
+    println!("scanning directory: {:?}", args.dir);
     println!();
 
     let rows = files.iter().map(|path| {
@@ -119,7 +119,7 @@ fn main() {
         };
     });
 
-    let table = match args.table_mode {
+    let table = match args.mode {
         args::TableMode::Compact => create_compact_table(rows, &args),
         args::TableMode::Detailed => create_detailed_table(rows),
     };
@@ -129,8 +129,8 @@ fn main() {
     println!();
 }
 
-fn get_files(args: &args::ProcessedArgs) -> impl Iterator<Item = Box<Path>> {
-    let files = fs::read_dir(Path::new(args.input_dir.as_ref()))
+fn get_files(args: &args::Args) -> impl Iterator<Item = Box<Path>> {
+    let files = fs::read_dir(Path::new(&args.dir.as_ref()))
         .unwrap()
         .map(|dir_entry| dir_entry.unwrap().path())
         .filter_map(|path| {
@@ -185,7 +185,7 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
     table
 }
 
-fn create_compact_table(iter: impl Iterator<Item = Row>, args: &ProcessedArgs) -> comfy_table::Table {
+fn create_compact_table(iter: impl Iterator<Item = Row>, args: &Args) -> comfy_table::Table {
     let mut table = comfy_table::Table::new();
     table.set_header(vec![
         "Profile Name",
@@ -201,7 +201,7 @@ fn create_compact_table(iter: impl Iterator<Item = Row>, args: &ProcessedArgs) -
     
     let mut rows = iter.collect::<Vec<_>>();
 
-    match args.compact_sort_by {
+    match args.sort_by {
         CompactSortBy::Name => rows.sort_by_key(|x| x.name.clone().unwrap_or_na().to_lowercase()),
         CompactSortBy::AppIdName => rows.sort_by_key(|x| x.app_id_name.clone().unwrap_or_na().to_lowercase()),
         CompactSortBy::ExpirationDate => rows.sort_by_key(|x| x.exp_date.to_string().as_deref().map(str::to_lowercase)),

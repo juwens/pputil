@@ -1,12 +1,20 @@
 use clap::{Parser, ValueEnum};
 use std::path::Path;
 
-#[derive(Debug)]
-pub struct ProcessedArgs {
-    pub input_dir: Box<str>,
-    pub table_mode: TableMode,
-    pub compact_sort_by: CompactSortBy,
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+pub struct Args {
+    #[arg(short, long, default_value="~/Library/MobileDevice/Provisioning Profiles")]
+    pub dir: Box<str>,
+
+    #[arg(short, long, value_enum, default_value_t=CompactSortBy::Name)]
+    pub sort_by: CompactSortBy,
+
+    #[arg(short='o', long="order", value_enum, default_value_t=SortOrder::Asc)]
     pub sort_order: SortOrder,
+
+    #[arg(short, long, value_enum, default_value_t=TableMode::Compact)]
+    pub mode: TableMode,
 }
 
 #[derive(Debug, ValueEnum, Clone)]
@@ -28,24 +36,7 @@ pub enum SortOrder {
     Desc
 }
 
-/// Simple program to greet a person
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
-    #[arg(short, long, default_value="~/Library/MobileDevice/Provisioning Profiles")]
-    dir: Box<str>,
-
-    #[arg(short, long, value_enum, default_value_t=CompactSortBy::Name)]
-    sort_by: CompactSortBy,
-
-    #[arg(short='o', long="order", value_enum, default_value_t=SortOrder::Asc)]
-    sort_order: SortOrder,
-
-    #[arg(short, long, value_enum, default_value_t=TableMode::Compact)]
-    mode: TableMode,
-}
-
-pub fn get_processed_args() -> ProcessedArgs {
+pub fn get_processed_args() -> Args {
     let args = Args::parse();
     let input_dir_expanded = shellexpand::tilde(&args.dir);
 
@@ -55,10 +46,10 @@ pub fn get_processed_args() -> ProcessedArgs {
         assert!(input_dir_path.is_absolute());
     }
 
-    ProcessedArgs {
-        input_dir: input_dir_expanded.into(),
-        table_mode: args.mode,
-        compact_sort_by: args.sort_by,
+    Args {
+        dir: input_dir_expanded.into(),
+        mode: args.mode,
+        sort_by: args.sort_by,
         sort_order: args.sort_order,
     }
 }
