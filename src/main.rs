@@ -3,7 +3,7 @@
 //     clippy::nursery,
 // )]
 
-use args::{CompactSortBy, Args};
+use args::{Cli, CompactSortBy};
 use chrono::{DateTime, Local};
 use der::{Decode, Tagged};
 use std::collections::BTreeMap;
@@ -132,7 +132,7 @@ fn main() {
     println!();
 }
 
-fn get_files(args: &args::Args) -> impl Iterator<Item = Box<Path>> {
+fn get_files(args: &args::Cli) -> impl Iterator<Item = Box<Path>> {
     let files = fs::read_dir(Path::new(&args.dir.as_ref()))
         .unwrap()
         .map(|dir_entry| dir_entry.unwrap().path())
@@ -188,7 +188,7 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
     table
 }
 
-fn create_compact_table(iter: impl Iterator<Item = Row>, args: &Args) -> comfy_table::Table {
+fn create_compact_table(iter: impl Iterator<Item = Row>, args: &Cli) -> comfy_table::Table {
     let mut table = comfy_table::Table::new();
     table.set_header(vec![
         "Profile Name",
@@ -201,19 +201,28 @@ fn create_compact_table(iter: impl Iterator<Item = Row>, args: &Args) -> comfy_t
         "prv\ndvc",
         "file",
     ]);
-    
+
     let mut rows = iter.collect::<Vec<_>>();
 
-    match args.sort_by {
-        CompactSortBy::Name => rows.sort_by_key(|x| x.name.clone().unwrap_or_na().to_lowercase()),
-        CompactSortBy::AppIdName => rows.sort_by_key(|x| x.app_id_name.clone().unwrap_or_na().to_lowercase()),
-        CompactSortBy::ExpirationDate => rows.sort_by_key(|x| x.exp_date.to_string().as_deref().map(str::to_lowercase)),
-    }
-
-    match args.sort_order {
-        args::SortOrder::Asc => {},
-        args::SortOrder::Desc => rows.reverse(),
-    }
+    match &args.command.as_ref().unwrap() {
+        args::Commands::PrintCompact(compact_args) => {
+            match compact_args.sort_by {
+                CompactSortBy::Name => {
+                    rows.sort_by_key(|x| x.name.clone().unwrap_or_na().to_lowercase())
+                }
+                CompactSortBy::AppIdName => {
+                    rows.sort_by_key(|x| x.app_id_name.clone().unwrap_or_na().to_lowercase())
+                }
+                CompactSortBy::ExpirationDate => {
+                    rows.sort_by_key(|x| x.exp_date.to_string().as_deref().map(str::to_lowercase))
+                }
+            };
+            match compact_args.sort_order {
+                args::SortOrder::Asc => {}
+                args::SortOrder::Desc => rows.reverse(),
+            }
+        }
+    };
 
     for row in rows {
         table.add_row(vec![
@@ -372,9 +381,7 @@ fn to_yaml_document(pl: &plist::Dictionary) -> YamlDocument {
 
 impl MyToString for Option<SystemTime> {
     fn to_string(self) -> Option<String> {
-        self
-            .map(DateTime::<Local>::from)
-            .map(|x| x.to_string())
+        self.map(DateTime::<Local>::from).map(|x| x.to_string())
     }
 
     fn to_str(self) -> Option<Box<str>> {
