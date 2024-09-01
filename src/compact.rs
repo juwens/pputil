@@ -12,7 +12,7 @@ enum WidthMode {
     Unlimited,
 }
 
-pub fn create_compact_table(iter: impl Iterator<Item = Row>, args: &Cli) -> comfy_table::Table {
+pub fn print_compact_table(iter: impl Iterator<Item = Row>, args: &Cli) {
     let mut table = comfy_table::Table::new();
     table
         .load_preset(comfy_table::presets::UTF8_FULL)
@@ -95,7 +95,7 @@ pub fn create_compact_table(iter: impl Iterator<Item = Row>, args: &Cli) -> comf
         ]);
     }
 
-    table
+    println!("{table}");
 }
 
 trait Truncate {

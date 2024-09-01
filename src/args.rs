@@ -32,17 +32,17 @@ pub struct PrintCompactCommandArgs {
 #[derive(Subcommand)]
 #[command()]
 pub enum Commands {
-    #[command(name="print")]
-    PrintCompact (PrintCompactCommandArgs),
+    #[command(name = "print")]
+    PrintCompact(PrintCompactCommandArgs),
 }
 
 #[derive(Debug, ValueEnum, Clone)]
 pub enum CompactSortBy {
-    #[clap(name="name")]
+    #[clap(name = "name")]
     Name,
-    #[clap(name="aidn")]
+    #[clap(name = "aidn")]
     AppIdName,
-    #[clap(name="expd")]
+    #[clap(name = "expd")]
     ExpirationDate,
 }
 
