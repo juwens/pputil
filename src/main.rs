@@ -179,10 +179,10 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
                 .as_str(),
             row.xc_managed
                 .map_or(NOT_AVAILABLE, |x| if x { "Y" } else { "N" }),
-            row.app_id_prefixes
+            &row.app_id_prefixes
                 .map(|x| x.join(", "))
-                .unwrap_or_na()
-                .as_str(),
+                .unwrap()
+                .into_boxed_str(),
             encode_to_yaml_str(&row.properties).as_str(),
         ]);
     }
@@ -241,7 +241,10 @@ fn create_compact_table(iter: impl Iterator<Item = Row>, args: &Cli) -> comfy_ta
         table.add_row(vec![
             row.name.unwrap_or_na().into_cell(),
             row.app_id_name.unwrap_or_na().into_cell(),
-            row.ent_app_id.unwrap_or_na().truncate_ex(&width, 40).into_cell(),
+            row.ent_app_id
+                .unwrap_or_na()
+                .truncate_ex(&width, 40)
+                .into_cell(),
             row.exp_date
                 .map(DateTime::<Local>::from)
                 .map(|x| {
@@ -261,7 +264,10 @@ fn create_compact_table(iter: impl Iterator<Item = Row>, args: &Cli) -> comfy_ta
                 .map_or(NOT_AVAILABLE, |x| if x { "Y" } else { "N" })
                 .to_string()
                 .into_cell(),
-            row.team_name.unwrap_or_na().truncate_ex(&width, 12).into_cell(),
+            row.team_name
+                .unwrap_or_na()
+                .truncate_ex(&width, 12)
+                .into_cell(),
             row.provisioned_devices
                 .map_or(String::from(NOT_AVAILABLE), |x| x.to_string())
                 .into_cell(),
@@ -305,35 +311,6 @@ fn parse_mobileprovision_into_plist(
     Ok(dict)
 }
 
-trait UnwrapOrNa {
-    fn unwrap_or_na(self) -> String;
-}
-
-const NOT_AVAILABLE: &str = "_";
-impl UnwrapOrNa for Option<String> {
-    fn unwrap_or_na(self) -> String {
-        self.unwrap_or(NOT_AVAILABLE.to_owned())
-    }
-}
-
-impl UnwrapOrNa for Option<&str> {
-    fn unwrap_or_na(self) -> String {
-        self.map_or(NOT_AVAILABLE.to_owned(), ToString::to_string)
-    }
-}
-
-impl UnwrapOrNa for Option<Box<str>> {
-    fn unwrap_or_na(self) -> String {
-        self.map_or(NOT_AVAILABLE.to_owned(), |x| x.to_string())
-    }
-}
-
-impl UnwrapOrNa for Option<usize> {
-    fn unwrap_or_na(self) -> String {
-        self.map_or(NOT_AVAILABLE.to_owned(), |x| x.to_string())
-    }
-}
-
 fn to_yaml_value(val: &plist::Value) -> serde_yml::Value {
     match val {
         plist::Value::String(x) => YamlValue::String(x.to_string()),
@@ -374,10 +351,32 @@ fn to_yaml_document(pl: &plist::Dictionary) -> YamlDocument {
 }
 
 
-trait MyToString {
+const NOT_AVAILABLE: &str = "_";
+trait UnwrapOrNa {
+    fn unwrap_or_na(self) -> String;
+}
+
+impl UnwrapOrNa for Option<&dyn ToString> {
+    fn unwrap_or_na(self) -> String {
+        let b: Box<&dyn ToString> = Box::new(&NOT_AVAILABLE);
+
+        self
+            .as_ref()
+            .unwrap_or(&b)
+            .to_string()
+    }
+}
+
+impl UnwrapOrNa for Option<Box<str>> {
+    fn unwrap_or_na(self) -> String {
+        self.map_or(NOT_AVAILABLE.to_owned(), |x| x.to_string())
+    }
+}
+
+trait ToStringExt {
     fn to_string(self) -> Option<String>;
 }
-impl MyToString for Option<SystemTime> {
+impl ToStringExt for Option<SystemTime> {
     fn to_string(self) -> Option<String> {
         self.map(DateTime::<Local>::from).map(|x| x.to_string())
     }
@@ -420,8 +419,6 @@ trait OptValueAsBoxStr {
 
 impl OptValueAsBoxStr for Option<&plist::Value> {
     fn as_box_str(&self) -> Option<Box<str>> {
-        self
-            .and_then(plist::Value::as_string)
-            .map(Box::from)
+        self.and_then(plist::Value::as_string).map(Box::from)
     }
 }
