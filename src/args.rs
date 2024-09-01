@@ -27,6 +27,9 @@ pub struct PrintCompactCommandArgs {
 
     #[arg(value_enum, short='o', long="order", default_value_t=SortOrder::Asc)]
     pub sort_order: SortOrder,
+
+    #[arg(short='w', long="wrap", default_value_t=false)]
+    pub allow_wrap: bool,
 }
 
 #[derive(Subcommand)]

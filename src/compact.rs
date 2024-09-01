@@ -3,14 +3,9 @@ use chrono::{DateTime, Local};
 use comfy_table::{Cell, Row};
 use std::vec;
 
+use crate::args::Commands;
 use crate::helpers::{IntoCell, ToStringExt, UnwrapOrNa, NOT_AVAILABLE};
 use crate::{args, PrivisionFileData};
-
-#[derive(Debug)]
-enum WidthMode {
-    Small,
-    Unlimited,
-}
 
 pub fn print_compact_table(iter: impl Iterator<Item = PrivisionFileData>, args: &Cli) {
     let mut table = comfy_table::Table::new();
@@ -34,7 +29,7 @@ pub fn print_compact_table(iter: impl Iterator<Item = PrivisionFileData>, args: 
     let mut rows = iter.collect::<Vec<_>>();
 
     match &args.command.as_ref().unwrap() {
-        args::Commands::PrintCompact(compact_args) => {
+        Commands::PrintCompact(compact_args) => {
             match compact_args.sort_by {
                 CompactSortBy::Name => rows.sort_by_key(|x| x.name.unwrap_or_na().to_lowercase()),
                 CompactSortBy::AppIdName => {
@@ -51,15 +46,16 @@ pub fn print_compact_table(iter: impl Iterator<Item = PrivisionFileData>, args: 
         }
     };
 
-    let width = match dbg!(termsize::get().unwrap().cols) {
-        // ..=100 => WidthMode::Small,
-        _ => WidthMode::Unlimited,
+    let wrap = match &args.command.as_ref().unwrap() {
+        Commands::PrintCompact(compact_args) => compact_args.allow_wrap,
     };
-    dbg!(&width);
 
     for file_data in rows {
         let mut table_row: Row = Row::new();
-        table_row.max_height(1);
+
+        if !wrap {
+            table_row.max_height(1);
+        }
 
         let mut add = |x: Cell| {
             table_row.add_cell(x);
@@ -68,11 +64,7 @@ pub fn print_compact_table(iter: impl Iterator<Item = PrivisionFileData>, args: 
         add(file_data.name.unwrap_or_na().into_cell());
         add(file_data.app_id_name.unwrap_or_na().into_cell());
 
-        add(file_data
-            .ent_app_id
-            .unwrap_or_na()
-            .truncate_ex(&width, 40)
-            .into_cell());
+        add(file_data.ent_app_id.unwrap_or_na().into_cell());
 
         add(file_data.exp_date.map(DateTime::<Local>::from).map_or_else(
             || Cell::new(NOT_AVAILABLE),
@@ -98,47 +90,17 @@ pub fn print_compact_table(iter: impl Iterator<Item = PrivisionFileData>, args: 
             .to_string()
             .into_cell());
 
-        add(file_data
-            .team_name
-            .unwrap_or_na()
-            .truncate_ex(&width, 12)
-            .into_cell());
+        add(file_data.team_name.unwrap_or_na().into_cell());
 
         add(file_data
             .provisioned_devices
             .map_or(String::from(NOT_AVAILABLE), |x| x.to_string())
             .into_cell());
 
-        add(file_data
-            .uuid
-            .unwrap_or_na()
-            .truncate_ex(&width, 6)
-            .into_cell());
+        add(file_data.uuid.unwrap_or_na().into_cell());
 
         table.add_row(table_row);
     }
 
     println!("{table}");
-}
-
-trait Truncate {
-    fn truncate(&self, count: usize) -> Self;
-    fn truncate_ex(self, mode: &WidthMode, s_len: usize) -> Self;
-}
-
-impl Truncate for String {
-    fn truncate(&self, count: usize) -> String {
-        if self.len() <= count {
-            self.to_owned()
-        } else {
-            format!("{}...", &self[..count])
-        }
-    }
-
-    fn truncate_ex(self, mode: &WidthMode, s_len: usize) -> Self {
-        match mode {
-            WidthMode::Small => self.truncate(s_len),
-            WidthMode::Unlimited => self,
-        }
-    }
 }
