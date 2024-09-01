@@ -1,13 +1,11 @@
-#![warn(
-    clippy::pedantic,
-)]
+#![warn(clippy::pedantic)]
 #![allow(
     clippy::module_name_repetitions,
-    clippy::redundant_closure_for_method_calls,
+    clippy::redundant_closure_for_method_calls
 )]
 
 use chrono::{DateTime, Local};
-use compact::create_compact_table;
+use compact::print_compact_table;
 use der::{Decode, Tagged};
 use helpers::{OptValueAsBoxStr, NOT_AVAILABLE};
 use std::collections::BTreeMap;
@@ -50,87 +48,89 @@ struct Row {
 
 fn main() {
     let args = args::get_processed_args();
-    let files = get_files(&args).collect::<Vec<_>>();
 
     println!();
     println!("scanning directory: {:?}", args.dir);
     println!();
 
-    let rows = files.iter().map(|path| {
-        let pl = match parse_mobileprovision_into_plist(path) {
-            Ok(x) => x,
-            Err(error) => panic!("Problem opening the file: {error:?}"),
-        };
+    let files = get_files(&args).collect::<Vec<_>>();
+    let rows = files.iter().map(|x| parse_file(x));
 
-        let fallback_entitlements = plist::Dictionary::default();
-        let ent = pl
-            .get("Entitlements")
-            .and_then(|x| x.as_dictionary())
-            .unwrap_or(&fallback_entitlements);
-
-        let provisioned_devices = pl
-            .get("ProvisionedDevices")
-            .and_then(|x| x.as_array())
-            .map(Vec::len);
-
-        return Row {
-            app_id_name: pl.get("AppIDName").as_box_str(),
-            xc_managed: pl.get("IsXcodeManaged").and_then(plist::Value::as_boolean),
-            name: pl
-                .get("Name")
-                .and_then(|x| x.as_string())
-                .map(|x| x.to_string().into_boxed_str()),
-            local_provision: pl.get("LocalProvision").and_then(|x| x.as_boolean()),
-            app_id_prefixes: {
-                let prefixes = pl
-                    .get("ApplicationIdentifierPrefix")
-                    .and_then(|x| x.as_array());
-                prefixes.map(|x| {
-                    x.iter()
-                        .map(|x| {
-                            x.as_string()
-                                .map_or(NOT_AVAILABLE.to_string(), |x| x.to_owned())
-                                .into_boxed_str()
-                        })
-                        .collect()
-                })
-            },
-            ent_app_id: ent.get("application-identifier").as_box_str(),
-            ent_team_id: ent.get("com.apple.developer.team-identifier").as_box_str(),
-
-            exp_date: pl
-                .get("ExpirationDate")
-                .and_then(plist::Value::as_date)
-                .map(SystemTime::from),
-
-            creation_date: pl
-                .get("CreationDate")
-                .and_then(plist::Value::as_date)
-                .map(SystemTime::from),
-
-            team_name: pl.get("TeamName").as_box_str(),
-            provisioned_devices,
-            file_path: path.clone(),
-            uuid: pl.get("UUID").as_box_str(),
-            platforms: pl.get("Platform").and_then(|x| x.as_array()).map(|x| {
-                x.iter()
-                    .map(|x| x.as_string().unwrap_or(NOT_AVAILABLE))
-                    .map(String::from)
-                    .map(String::into_boxed_str)
-                    .collect::<Vec<_>>()
-            }),
-            properties: to_yaml_document(&pl),
-        };
-    });
-
-    let table = match args.mode {
-        args::TableMode::Compact => create_compact_table(rows, &args),
-        args::TableMode::Detailed => create_detailed_table(rows),
+    match args.mode {
+        args::TableMode::Compact => print_compact_table(rows, &args),
+        args::TableMode::Detailed => print_detailed_table(rows),
     };
 
-    println!("{table}");
-
     println!();
+}
+
+fn parse_file(path: &Path) -> Row {
+    let pl = match parse_mobileprovision_into_plist(path) {
+        Ok(x) => x,
+        Err(error) => panic!("Problem opening the file: {error:?}"),
+    };
+
+    let fallback_entitlements = plist::Dictionary::default();
+    let ent = pl
+        .get("Entitlements")
+        .and_then(|x| x.as_dictionary())
+        .unwrap_or(&fallback_entitlements);
+
+    let provisioned_devices = pl
+        .get("ProvisionedDevices")
+        .and_then(|x| x.as_array())
+        .map(Vec::len);
+
+    let row = Row {
+        app_id_name: pl.get("AppIDName").as_box_str(),
+        xc_managed: pl.get("IsXcodeManaged").and_then(plist::Value::as_boolean),
+        name: pl
+            .get("Name")
+            .and_then(|x| x.as_string())
+            .map(|x| x.to_string().into_boxed_str()),
+        local_provision: pl.get("LocalProvision").and_then(|x| x.as_boolean()),
+        app_id_prefixes: {
+            let prefixes = pl
+                .get("ApplicationIdentifierPrefix")
+                .and_then(|x| x.as_array());
+            prefixes.map(|x| {
+                x.iter()
+                    .map(|x| {
+                        x.as_string()
+                            .map_or(NOT_AVAILABLE.to_string(), |x| x.to_owned())
+                            .into_boxed_str()
+                    })
+                    .collect()
+            })
+        },
+        ent_app_id: ent.get("application-identifier").as_box_str(),
+        ent_team_id: ent.get("com.apple.developer.team-identifier").as_box_str(),
+
+        exp_date: pl
+            .get("ExpirationDate")
+            .and_then(plist::Value::as_date)
+            .map(SystemTime::from),
+
+        creation_date: pl
+            .get("CreationDate")
+            .and_then(plist::Value::as_date)
+            .map(SystemTime::from),
+
+        team_name: pl.get("TeamName").as_box_str(),
+        provisioned_devices,
+        file_path: path.into(),
+        uuid: pl.get("UUID").as_box_str(),
+        platforms: pl.get("Platform").and_then(|x| x.as_array()).map(|x| {
+            x.iter()
+                .map(|x| x.as_string().unwrap_or(NOT_AVAILABLE))
+                .map(String::from)
+                .map(String::into_boxed_str)
+                .collect::<Vec<_>>()
+        }),
+        properties: to_yaml_document(&pl),
+    };
+
+    row
 }
 
 fn get_files(args: &args::Cli) -> impl Iterator<Item = Box<Path>> {
@@ -150,7 +150,7 @@ fn get_files(args: &args::Cli) -> impl Iterator<Item = Box<Path>> {
     files
 }
 
-fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table {
+fn print_detailed_table(rows: impl Iterator<Item = Row>) {
     fn encode_to_yaml_str(value: &YamlDocument) -> String {
         serde_yml::to_string(&value).unwrap()
     }
@@ -186,7 +186,7 @@ fn create_detailed_table(rows: impl Iterator<Item = Row>) -> comfy_table::Table 
         ]);
     }
 
-    table
+    print!("{table}");
 }
 
 fn parse_mobileprovision_into_plist(

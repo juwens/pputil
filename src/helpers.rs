@@ -25,7 +25,6 @@ impl IntoCell for String {
     }
 }
 
-
 pub trait ToStringExt {
     fn to_string(self) -> Option<String>;
 }
