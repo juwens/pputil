@@ -1,7 +1,10 @@
-// #![warn(
-//     clippy::pedantic,
-//     clippy::nursery,
-// )]
+#![warn(
+    clippy::pedantic,
+)]
+#![allow(
+    clippy::module_name_repetitions,
+    clippy::redundant_closure_for_method_calls,
+)]
 
 use args::{Cli, CompactSortBy};
 use chrono::{DateTime, Local};
@@ -214,14 +217,12 @@ fn create_compact_table(iter: impl Iterator<Item = Row>, args: &Cli) -> comfy_ta
     match &args.command.as_ref().unwrap() {
         args::Commands::PrintCompact(compact_args) => {
             match compact_args.sort_by {
-                CompactSortBy::Name => {
-                    rows.sort_by_key(|x| x.name.clone().unwrap_or_na().to_lowercase())
-                }
+                CompactSortBy::Name => rows.sort_by_key(|x| x.name.unwrap_or_na().to_lowercase()),
                 CompactSortBy::AppIdName => {
-                    rows.sort_by_key(|x| x.app_id_name.clone().unwrap_or_na().to_lowercase())
+                    rows.sort_by_key(|x| x.app_id_name.unwrap_or_na().to_lowercase());
                 }
                 CompactSortBy::ExpirationDate => {
-                    rows.sort_by_key(|x| x.exp_date.to_string().as_deref().map(str::to_lowercase))
+                    rows.sort_by_key(|x| x.exp_date.to_string().as_deref().map(str::to_lowercase));
                 }
             };
             match compact_args.sort_order {
@@ -245,17 +246,17 @@ fn create_compact_table(iter: impl Iterator<Item = Row>, args: &Cli) -> comfy_ta
                 .unwrap_or_na()
                 .truncate_ex(&width, 40)
                 .into_cell(),
-            row.exp_date
-                .map(DateTime::<Local>::from)
-                .map(|x| {
+            row.exp_date.map(DateTime::<Local>::from).map_or_else(
+                || Cell::new(NOT_AVAILABLE),
+                |x| {
                     let s = x.format("%Y-%m-%d").to_string();
                     let c = Cell::new(s);
                     if x.le(&chrono::Utc::now()) {
                         return c.fg(comfy_table::Color::Red);
                     }
                     c
-                })
-                .unwrap_or_else(|| Cell::new(NOT_AVAILABLE)),
+                },
+            ),
             row.xc_managed
                 .map_or(NOT_AVAILABLE, |x| if x { "Y" } else { "N" })
                 .to_string()
@@ -347,29 +348,19 @@ fn to_yaml_document(pl: &plist::Dictionary) -> YamlDocument {
         (x.0.to_owned(), Some(to_yaml_value(x.1)))
     });
 
+    #[allow(clippy::from_iter_instead_of_collect)]
     YamlDocument::from_iter(items)
 }
 
+trait UnwrapOrNa {
+    fn unwrap_or_na(&self) -> String;
+}
 
 const NOT_AVAILABLE: &str = "_";
-trait UnwrapOrNa {
-    fn unwrap_or_na(self) -> String;
-}
-
-impl UnwrapOrNa for Option<&dyn ToString> {
-    fn unwrap_or_na(self) -> String {
-        let b: Box<&dyn ToString> = Box::new(&NOT_AVAILABLE);
-
-        self
-            .as_ref()
-            .unwrap_or(&b)
-            .to_string()
-    }
-}
 
 impl UnwrapOrNa for Option<Box<str>> {
-    fn unwrap_or_na(self) -> String {
-        self.map_or(NOT_AVAILABLE.to_owned(), |x| x.to_string())
+    fn unwrap_or_na(&self) -> String {
+        self.clone().as_deref().unwrap_or(NOT_AVAILABLE).to_string()
     }
 }
 
@@ -399,9 +390,10 @@ trait Truncate {
 
 impl Truncate for String {
     fn truncate(&self, count: usize) -> String {
-        match self.len() <= count {
-            true => self.to_owned(),
-            false => format!("{}...", &self[..count]),
+        if self.len() <= count {
+            self.to_owned()
+        } else {
+            format!("{}...", &self[..count])
         }
     }
 
