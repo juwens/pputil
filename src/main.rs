@@ -22,7 +22,7 @@ type YamlValue = serde_yml::value::Value;
 type YamlDocument = BTreeMap<String, Option<YamlValue>>;
 
 #[derive(Debug)]
-struct Row {
+struct PrivisionFileData {
     app_id_name: Option<Box<str>>,
     name: Option<Box<str>>,
     team_name: Option<Box<str>>,
@@ -54,21 +54,23 @@ fn main() {
     println!();
 
     let files = get_files(&args).collect::<Vec<_>>();
-    let rows = files.iter().map(|x| parse_file(x));
+    let file_data_rows = files.iter()
+        .map(|x| parse_file(x))
+        .filter_map(|x| match x {
+            Ok(row) => Some(row),
+            Err(_) => None,
+        });
 
     match args.mode {
-        args::TableMode::Compact => print_compact_table(rows, &args),
-        args::TableMode::Detailed => print_detailed_table(rows),
+        args::TableMode::Compact => print_compact_table(file_data_rows, &args),
+        args::TableMode::Detailed => print_detailed_table(file_data_rows),
     };
 
     println!();
 }
 
-fn parse_file(path: &Path) -> Row {
-    let pl = match parse_mobileprovision_into_plist(path) {
-        Ok(x) => x,
-        Err(error) => panic!("Problem opening the file: {error:?}"),
-    };
+fn parse_file(path: &Path) -> Result<PrivisionFileData, Box<dyn std::error::Error>> {
+    let pl =  parse_mobileprovision_into_plist(path)?;
 
     let fallback_entitlements = plist::Dictionary::default();
     let ent = pl
@@ -81,7 +83,7 @@ fn parse_file(path: &Path) -> Row {
         .and_then(|x| x.as_array())
         .map(Vec::len);
 
-    let row = Row {
+    let row = PrivisionFileData {
         app_id_name: pl.get("AppIDName").as_box_str(),
         xc_managed: pl.get("IsXcodeManaged").and_then(plist::Value::as_boolean),
         name: pl
@@ -130,7 +132,7 @@ fn parse_file(path: &Path) -> Row {
         properties: to_yaml_document(&pl),
     };
 
-    row
+    Ok(row)
 }
 
 fn get_files(args: &args::Cli) -> impl Iterator<Item = Box<Path>> {
@@ -150,7 +152,7 @@ fn get_files(args: &args::Cli) -> impl Iterator<Item = Box<Path>> {
     files
 }
 
-fn print_detailed_table(rows: impl Iterator<Item = Row>) {
+fn print_detailed_table(rows: impl Iterator<Item = PrivisionFileData>) {
     fn encode_to_yaml_str(value: &YamlDocument) -> String {
         serde_yml::to_string(&value).unwrap()
     }

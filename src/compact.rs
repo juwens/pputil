@@ -1,10 +1,10 @@
 use args::{Cli, CompactSortBy};
 use chrono::{DateTime, Local};
-use comfy_table::Cell;
+use comfy_table::{Cell, Row};
 use std::vec;
 
 use crate::helpers::{IntoCell, ToStringExt, UnwrapOrNa, NOT_AVAILABLE};
-use crate::{args, Row};
+use crate::{args, PrivisionFileData};
 
 #[derive(Debug)]
 enum WidthMode {
@@ -12,7 +12,7 @@ enum WidthMode {
     Unlimited,
 }
 
-pub fn print_compact_table(iter: impl Iterator<Item = Row>, args: &Cli) {
+pub fn print_compact_table(iter: impl Iterator<Item = PrivisionFileData>, args: &Cli) {
     let mut table = comfy_table::Table::new();
     table
         .load_preset(comfy_table::presets::UTF8_FULL)
@@ -52,47 +52,70 @@ pub fn print_compact_table(iter: impl Iterator<Item = Row>, args: &Cli) {
     };
 
     let width = match dbg!(termsize::get().unwrap().cols) {
-        ..=250 => WidthMode::Small,
+        // ..=100 => WidthMode::Small,
         _ => WidthMode::Unlimited,
     };
     dbg!(&width);
 
-    for row in rows {
-        table.add_row(vec![
-            row.name.unwrap_or_na().into_cell(),
-            row.app_id_name.unwrap_or_na().into_cell(),
-            row.ent_app_id
-                .unwrap_or_na()
-                .truncate_ex(&width, 40)
-                .into_cell(),
-            row.exp_date.map(DateTime::<Local>::from).map_or_else(
-                || Cell::new(NOT_AVAILABLE),
-                |x| {
-                    let s = x.format("%Y-%m-%d").to_string();
-                    let c = Cell::new(s);
-                    if x.le(&chrono::Utc::now()) {
-                        return c.fg(comfy_table::Color::Red);
-                    }
-                    c
-                },
-            ),
-            row.xc_managed
-                .map_or(NOT_AVAILABLE, |x| if x { "Y" } else { "N" })
-                .to_string()
-                .into_cell(),
-            row.local_provision
-                .map_or(NOT_AVAILABLE, |x| if x { "Y" } else { "N" })
-                .to_string()
-                .into_cell(),
-            row.team_name
-                .unwrap_or_na()
-                .truncate_ex(&width, 12)
-                .into_cell(),
-            row.provisioned_devices
-                .map_or(String::from(NOT_AVAILABLE), |x| x.to_string())
-                .into_cell(),
-            row.uuid.unwrap_or_na().truncate_ex(&width, 6).into_cell(),
-        ]);
+    for file_data in rows {
+        let mut table_row: Row = Row::new();
+        table_row.max_height(1);
+
+        let mut add = |x: Cell| {
+            table_row.add_cell(x);
+        };
+
+        add(file_data.name.unwrap_or_na().into_cell());
+        add(file_data.app_id_name.unwrap_or_na().into_cell());
+
+        add(file_data
+            .ent_app_id
+            .unwrap_or_na()
+            .truncate_ex(&width, 40)
+            .into_cell());
+
+        add(file_data.exp_date.map(DateTime::<Local>::from).map_or_else(
+            || Cell::new(NOT_AVAILABLE),
+            |x| {
+                let s = x.format("%Y-%m-%d").to_string();
+                let c = Cell::new(s);
+                if x.le(&chrono::Utc::now()) {
+                    return c.fg(comfy_table::Color::Red);
+                }
+                c
+            },
+        ));
+
+        add(file_data
+            .xc_managed
+            .map_or(NOT_AVAILABLE, |x| if x { "Y" } else { "N" })
+            .to_string()
+            .into_cell());
+
+        add(file_data
+            .local_provision
+            .map_or(NOT_AVAILABLE, |x| if x { "Y" } else { "N" })
+            .to_string()
+            .into_cell());
+
+        add(file_data
+            .team_name
+            .unwrap_or_na()
+            .truncate_ex(&width, 12)
+            .into_cell());
+
+        add(file_data
+            .provisioned_devices
+            .map_or(String::from(NOT_AVAILABLE), |x| x.to_string())
+            .into_cell());
+
+        add(file_data
+            .uuid
+            .unwrap_or_na()
+            .truncate_ex(&width, 6)
+            .into_cell());
+
+        table.add_row(table_row);
     }
 
     println!("{table}");
