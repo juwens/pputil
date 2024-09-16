@@ -4,10 +4,10 @@ use comfy_table::{Cell, Row};
 use std::vec;
 
 use crate::args::Commands;
-use crate::helpers::{IntoCell, ToStringExt, UnwrapOrNa, NOT_AVAILABLE};
-use crate::{args, PrivisionFileData};
+use crate::helpers::{IntoCell, ParseFileResult, PrivisionFileData, ToStringExt, UnwrapOrNa, NOT_AVAILABLE};
+use crate::{args};
 
-pub fn print_compact_table(iter: impl Iterator<Item = PrivisionFileData>, args: &Cli) {
+pub fn print_compact_table(file_data_row: impl Iterator<Item = Result<PrivisionFileData, PrivisionFileData>>, args: &Cli) {
     let mut table = comfy_table::Table::new();
     table
         .load_preset(comfy_table::presets::UTF8_FULL)
@@ -26,31 +26,32 @@ pub fn print_compact_table(iter: impl Iterator<Item = PrivisionFileData>, args: 
         "UUID",
     ]);
 
-    let mut rows = iter.collect::<Vec<_>>();
+    let mut sorted_file_data_rows = file_data_row.collect::<Vec<_>>();
 
     match &args.command.as_ref().unwrap() {
         Commands::PrintCompact(compact_args) => {
-            match compact_args.sort_by {
-                CompactSortBy::Name => rows.sort_by_key(|x| x.name.unwrap_or_na().to_lowercase()),
-                CompactSortBy::AppIdName => {
-                    rows.sort_by_key(|x| x.app_id_name.unwrap_or_na().to_lowercase());
-                }
-                CompactSortBy::ExpirationDate => {
-                    rows.sort_by_key(|x| x.exp_date.to_string().as_deref().map(str::to_lowercase));
-                }
-            };
+            // match compact_args.sort_by {
+            //     CompactSortBy::Name => sorted_file_data_rows.sort_by_key(|x| x.name.unwrap_or_na().to_lowercase()),
+            //     CompactSortBy::AppIdName => {
+            //         sorted_file_data_rows.sort_by_key(|x| x.app_id_name.unwrap_or_na().to_lowercase());
+            //     }
+            //     CompactSortBy::ExpirationDate => {
+            //         sorted_file_data_rows.sort_by_key(|x| x.exp_date.to_string().as_deref().map(str::to_lowercase));
+            //     }
+            // };
             match compact_args.sort_order {
                 args::SortOrder::Asc => {}
-                args::SortOrder::Desc => rows.reverse(),
+                args::SortOrder::Desc => sorted_file_data_rows.reverse(),
             }
         }
     };
+    let sorted_file_data_rows = sorted_file_data_rows;
 
     let wrap = match &args.command.as_ref().unwrap() {
         Commands::PrintCompact(compact_args) => compact_args.allow_wrap,
     };
 
-    for file_data in rows {
+    for parse_file_result in sorted_file_data_rows {
         let mut table_row: Row = Row::new();
 
         if !wrap {
@@ -59,6 +60,10 @@ pub fn print_compact_table(iter: impl Iterator<Item = PrivisionFileData>, args: 
 
         let mut add = |x: Cell| {
             table_row.add_cell(x);
+        };
+
+        let file_data = match parse_file_result {
+            Err(x) | Ok(x) => x,
         };
 
         add(file_data.name.unwrap_or_na().into_cell());

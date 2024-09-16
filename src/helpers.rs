@@ -1,7 +1,36 @@
-use std::time::SystemTime;
+use std::{path::Path, time::SystemTime};
 
 use chrono::{DateTime, Local};
 use comfy_table::Cell;
+
+use crate::YamlDocument;
+
+pub type ParseFileResult = Result<PrivisionFileData, Box<dyn std::error::Error>>;
+
+#[derive(Debug)]
+pub struct PrivisionFileData {
+    pub app_id_name: Option<Box<str>>,
+    pub name: Option<Box<str>>,
+    pub team_name: Option<Box<str>>,
+    /// is Xcode managed
+    pub xc_managed: Option<bool>,
+    pub app_id_prefixes: Option<Vec<Box<str>>>,
+    /// expiration date
+    pub exp_date: Option<SystemTime>,
+    /// entitlements.application-identifier
+    pub ent_app_id: Option<Box<str>>,
+    pub provisioned_devices: Option<usize>,
+    pub file_path: Box<Path>,
+    pub local_provision: Option<bool>,
+    pub uuid: Option<Box<str>>,
+    pub properties: YamlDocument,
+    #[allow(dead_code)]
+    pub creation_date: Option<SystemTime>,
+    #[allow(dead_code)]
+    pub ent_team_id: Option<Box<str>>,
+    #[allow(dead_code)]
+    pub platforms: Option<Vec<Box<str>>>,
+}
 
 pub const NOT_AVAILABLE: &str = "_";
 

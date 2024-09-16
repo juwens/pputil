@@ -7,7 +7,7 @@
 use chrono::{DateTime, Local};
 use compact::print_compact_table;
 use der::{Decode, Tagged};
-use helpers::{OptValueAsBoxStr, NOT_AVAILABLE};
+use helpers::{OptValueAsBoxStr, ParseFileResult, PrivisionFileData, NOT_AVAILABLE};
 use std::collections::BTreeMap;
 use std::fs::{self};
 use std::path::Path;
@@ -21,31 +21,6 @@ mod helpers;
 type YamlValue = serde_yml::value::Value;
 type YamlDocument = BTreeMap<String, Option<YamlValue>>;
 
-#[derive(Debug)]
-struct PrivisionFileData {
-    app_id_name: Option<Box<str>>,
-    name: Option<Box<str>>,
-    team_name: Option<Box<str>>,
-    /// is Xcode managed
-    xc_managed: Option<bool>,
-    app_id_prefixes: Option<Vec<Box<str>>>,
-    /// expiration date
-    exp_date: Option<SystemTime>,
-    /// entitlements.application-identifier
-    ent_app_id: Option<Box<str>>,
-    provisioned_devices: Option<usize>,
-    file_path: Box<Path>,
-    local_provision: Option<bool>,
-    uuid: Option<Box<str>>,
-    properties: YamlDocument,
-    #[allow(dead_code)]
-    creation_date: Option<SystemTime>,
-    #[allow(dead_code)]
-    ent_team_id: Option<Box<str>>,
-    #[allow(dead_code)]
-    platforms: Option<Vec<Box<str>>>,
-}
-
 fn main() {
     let args = args::get_processed_args();
 
@@ -54,12 +29,7 @@ fn main() {
     println!();
 
     let files = get_files(&args).collect::<Vec<_>>();
-    let file_data_rows = files.iter()
-        .map(|x| parse_file(x))
-        .filter_map(|x| match x {
-            Ok(row) => Some(row),
-            Err(_) => None,
-        });
+    let file_data_rows = files.iter().map(|x| parse_file(x));
 
     match args.mode {
         args::TableMode::Compact => print_compact_table(file_data_rows, &args),
@@ -69,8 +39,31 @@ fn main() {
     println!();
 }
 
-fn parse_file(path: &Path) -> Result<PrivisionFileData, Box<dyn std::error::Error>> {
-    let pl =  parse_mobileprovision_into_plist(path)?;
+fn parse_file(path: &Path) -> Result<PrivisionFileData, PrivisionFileData> {
+    let file = path.to_string_lossy();
+    let Ok(pl) = parse_mobileprovision_into_plist(path) else {
+        return Err(PrivisionFileData {
+            name: Some(
+                format!("failed to parse file {file}")
+                    .to_string()
+                    .into_boxed_str(),
+            ),
+            app_id_name: None,
+            team_name: None,
+            xc_managed: None,
+            app_id_prefixes: None,
+            exp_date: None,
+            ent_app_id: None,
+            provisioned_devices: None,
+            file_path: path.clone().into(),
+            local_provision: None,
+            uuid: None,
+            properties: YamlDocument::new(),
+            creation_date: None,
+            ent_team_id: None,
+            platforms: None,
+        });
+    };
 
     let fallback_entitlements = plist::Dictionary::default();
     let ent = pl
@@ -152,7 +145,7 @@ fn get_files(args: &args::Cli) -> impl Iterator<Item = Box<Path>> {
     files
 }
 
-fn print_detailed_table(rows: impl Iterator<Item = PrivisionFileData>) {
+fn print_detailed_table(rows: impl Iterator<Item = Result<PrivisionFileData, PrivisionFileData>>) {
     fn encode_to_yaml_str(value: &YamlDocument) -> String {
         serde_yml::to_string(&value).unwrap()
     }
@@ -167,6 +160,13 @@ fn print_detailed_table(rows: impl Iterator<Item = PrivisionFileData>) {
     ]);
 
     for row in rows {
+        if row.is_err() {
+            table.add_row(vec![format!("failed to parse: {row:?}")]);
+            continue;
+        }
+
+        let row = row.ok().unwrap();
+
         table.add_row(vec![
             format!(
                 "Name: {}\n\nFile: {}",
