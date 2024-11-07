@@ -7,7 +7,8 @@ pub struct Cli {
     #[arg(
         short,
         long,
-        default_value = "~/Library/MobileDevice/Provisioning Profiles"
+        // default_value = "~/Library/MobileDevice/Provisioning Profiles", // XC 15
+        default_value = "~/Library/Developer/Xcode/UserData/Provisioning Profiles", // XC 16
     )]
     pub dir: Box<str>,
 
