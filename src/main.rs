@@ -7,7 +7,7 @@
 use chrono::{DateTime, Local};
 use compact::print_compact_table;
 use der::{Decode, Tagged};
-use helpers::{OptValueAsBoxStr, ParseFileResult, PrivisionFileData, NOT_AVAILABLE};
+use helpers::{OptValueAsBoxStr, PrivisionFileData, NOT_AVAILABLE};
 use std::collections::BTreeMap;
 use std::fs::{self};
 use std::path::Path;
@@ -55,7 +55,7 @@ fn parse_file(path: &Path) -> Result<PrivisionFileData, PrivisionFileData> {
             exp_date: None,
             ent_app_id: None,
             provisioned_devices: None,
-            file_path: path.clone().into(),
+            file_path: path.into(),
             local_provision: None,
             uuid: None,
             properties: YamlDocument::new(),
