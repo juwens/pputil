@@ -1,11 +1,6 @@
 use std::{path::Path, time::SystemTime};
-
-use chrono::{DateTime, Local};
 use comfy_table::Cell;
-
 use crate::YamlDocument;
-
-pub type ParseFileResult = Result<PrivisionFileData, Box<dyn std::error::Error>>;
 
 #[derive(Debug)]
 pub struct PrivisionFileData {
@@ -51,15 +46,6 @@ pub trait IntoCell {
 impl IntoCell for String {
     fn into_cell(self) -> Cell {
         Cell::new(self)
-    }
-}
-
-pub trait ToStringExt {
-    fn to_string(self) -> Option<String>;
-}
-impl ToStringExt for Option<SystemTime> {
-    fn to_string(self) -> Option<String> {
-        self.map(DateTime::<Local>::from).map(|x| x.to_string())
     }
 }
 

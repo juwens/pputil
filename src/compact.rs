@@ -1,11 +1,11 @@
-use args::{Cli, CompactSortBy};
+use args::Cli;
 use chrono::{DateTime, Local};
 use comfy_table::{Cell, Row};
 use std::vec;
 
 use crate::args::Commands;
-use crate::helpers::{IntoCell, ParseFileResult, PrivisionFileData, ToStringExt, UnwrapOrNa, NOT_AVAILABLE};
-use crate::{args};
+use crate::helpers::{IntoCell, PrivisionFileData, UnwrapOrNa, NOT_AVAILABLE};
+use crate::args;
 
 pub fn print_compact_table(file_data_row: impl Iterator<Item = Result<PrivisionFileData, PrivisionFileData>>, args: &Cli) {
     let mut table = comfy_table::Table::new();
