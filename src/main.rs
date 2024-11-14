@@ -25,7 +25,7 @@ fn main() {
     let args = args::get_processed_args();
 
     println!();
-    println!("scanning directory: {:?}", args.dir);
+    println!("scanning directory: {:?}", args.dirs);
     println!();
 
     let files = get_files(&args).collect::<Vec<_>>();
@@ -128,8 +128,15 @@ fn parse_file(path: &Path) -> Result<PrivisionFileData, PrivisionFileData> {
     Ok(row)
 }
 
-fn get_files(args: &args::Cli) -> impl Iterator<Item = Box<Path>> {
-    let files = fs::read_dir(Path::new(&args.dir.as_ref()))
+fn get_files(args: &args::Cli) -> impl Iterator<Item = Box<Path>> + '_ {
+    args
+        .dirs
+        .iter()
+        .flat_map(|dir| get_files_from_dir(dir))
+}
+
+fn get_files_from_dir(dir: &str) -> impl Iterator<Item = Box<Path>> {
+    fs::read_dir(Path::new(dir))
         .unwrap()
         .map(|dir_entry| dir_entry.unwrap().path())
         .filter_map(|path| {
@@ -141,8 +148,7 @@ fn get_files(args: &args::Cli) -> impl Iterator<Item = Box<Path>> {
             } else {
                 None
             }
-        });
-    files
+        })
 }
 
 fn print_detailed_table(rows: impl Iterator<Item = Result<PrivisionFileData, PrivisionFileData>>) {

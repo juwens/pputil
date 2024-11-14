@@ -8,9 +8,12 @@ pub struct Cli {
         short,
         long,
         // default_value = "~/Library/MobileDevice/Provisioning Profiles", // XC 15
-        default_value = "~/Library/Developer/Xcode/UserData/Provisioning Profiles", // XC 16
+        default_values = vec![
+            "~/Library/Developer/Xcode/UserData/Provisioning Profiles", // XC 16
+            "~/Library/MobileDevice/Provisioning Profiles", // XC 15
+        ]
     )]
-    pub dir: Box<str>,
+    pub dirs: Vec<String>,
 
     #[command(subcommand)]
     pub command: Option<Commands>,
@@ -29,7 +32,7 @@ pub struct PrintCompactCommandArgs {
     #[arg(value_enum, short='o', long="order", default_value_t=SortOrder::Asc)]
     pub sort_order: SortOrder,
 
-    #[arg(short='w', long="wrap", default_value_t=false)]
+    #[arg(short = 'w', long = "wrap", default_value_t = false)]
     pub allow_wrap: bool,
 }
 
@@ -64,14 +67,20 @@ pub enum SortOrder {
 
 pub fn get_processed_args() -> Cli {
     let mut args = Cli::parse();
-    let input_dir_expanded = shellexpand::tilde(&args.dir);
+    let input_dirs_expanded: &Vec<String> = &args
+        .dirs
+        .iter()
+        .map(|x| shellexpand::tilde(&x).into())
+        .collect();
 
-    {
-        let input_dir_path = Path::new(input_dir_expanded.as_ref());
+    // plausibility check for dirs
+    for dir in input_dirs_expanded.iter() {
+        let input_dir_path = Path::new(&dir);
         assert!(input_dir_path.is_dir());
         assert!(input_dir_path.is_absolute());
     }
-    args.dir = input_dir_expanded.into_owned().into_boxed_str();
+
+    args.dirs = input_dirs_expanded.clone();
     args.command = {
         let a = args.command.unwrap_or_else(|| {
             let cargs = PrintCompactCommandArgs::parse();
