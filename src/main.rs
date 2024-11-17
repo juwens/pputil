@@ -4,10 +4,11 @@
     clippy::redundant_closure_for_method_calls
 )]
 
+use args::{XcProvisioningProfileDirKind, XcProvisioningProfileDir};
 use chrono::{DateTime, Local};
 use compact::print_compact_table;
 use der::{Decode, Tagged};
-use helpers::{OptValueAsBoxStr, PrivisionFileData, NOT_AVAILABLE};
+use helpers::{OptValueAsBoxStr, ProvisioningProfileFileData, NOT_AVAILABLE};
 use std::collections::BTreeMap;
 use std::fs::{self};
 use std::path::Path;
@@ -21,15 +22,24 @@ mod helpers;
 type YamlValue = serde_yml::value::Value;
 type YamlDocument = BTreeMap<String, Option<YamlValue>>;
 
+struct XcProvisioningProfileFile {
+    pub path : Box<Path>,
+    pub xc_kind : XcProvisioningProfileDirKind,
+}
+
 fn main() {
     let args = args::get_processed_args();
 
     println!();
-    println!("scanning directory: {:?}", args.dirs);
+    println!("scanning directories:");
+    for dir in &args.dirs_ex {
+        println!(" * {} ({:?})", dir.path.to_string_lossy(), dir.kind);
+        
+    }
     println!();
 
     let files = get_files(&args).collect::<Vec<_>>();
-    let file_data_rows = files.iter().map(|x| parse_file(x));
+    let file_data_rows = files.iter().map(parse_file);
 
     match args.mode {
         args::TableMode::Compact => print_compact_table(file_data_rows, &args),
@@ -39,23 +49,23 @@ fn main() {
     println!();
 }
 
-fn parse_file(path: &Path) -> Result<PrivisionFileData, PrivisionFileData> {
-    let file = path.to_string_lossy();
-    let Ok(pl) = parse_mobileprovision_into_plist(path) else {
-        return Err(PrivisionFileData {
+fn parse_file(file: &XcProvisioningProfileFile) -> Result<ProvisioningProfileFileData, ProvisioningProfileFileData> {
+    let Ok(pl) = parse_mobileprovision_into_plist(&file.path) else {
+        return Err(ProvisioningProfileFileData {
             name: Some(
-                format!("failed to parse file {file}")
+                format!("failed to parse file {}", file.path.to_string_lossy())
                     .to_string()
                     .into_boxed_str(),
             ),
             app_id_name: None,
             team_name: None,
             xc_managed: None,
+            xc_kind: None,
             app_id_prefixes: None,
             exp_date: None,
             ent_app_id: None,
             provisioned_devices: None,
-            file_path: path.into(),
+            file_path: file.path.clone(),
             local_provision: None,
             uuid: None,
             properties: YamlDocument::new(),
@@ -76,9 +86,13 @@ fn parse_file(path: &Path) -> Result<PrivisionFileData, PrivisionFileData> {
         .and_then(|x| x.as_array())
         .map(Vec::len);
 
-    let row = PrivisionFileData {
+    let row = ProvisioningProfileFileData {
         app_id_name: pl.get("AppIDName").as_box_str(),
         xc_managed: pl.get("IsXcodeManaged").and_then(plist::Value::as_boolean),
+        xc_kind: match file.xc_kind {
+            XcProvisioningProfileDirKind::Xc15 => Some("15-".into()),
+            XcProvisioningProfileDirKind::Xc16 => Some("16+".into()),
+        },
         name: pl
             .get("Name")
             .and_then(|x| x.as_string())
@@ -113,7 +127,7 @@ fn parse_file(path: &Path) -> Result<PrivisionFileData, PrivisionFileData> {
 
         team_name: pl.get("TeamName").as_box_str(),
         provisioned_devices,
-        file_path: path.into(),
+        file_path: file.path.clone(),
         uuid: pl.get("UUID").as_box_str(),
         platforms: pl.get("Platform").and_then(|x| x.as_array()).map(|x| {
             x.iter()
@@ -128,15 +142,15 @@ fn parse_file(path: &Path) -> Result<PrivisionFileData, PrivisionFileData> {
     Ok(row)
 }
 
-fn get_files(args: &args::Cli) -> impl Iterator<Item = Box<Path>> + '_ {
+fn get_files(args: &args::MyCliArgs) -> impl Iterator<Item = XcProvisioningProfileFile> + '_ {
     args
-        .dirs
+        .dirs_ex
         .iter()
-        .flat_map(|dir| get_files_from_dir(dir))
+        .flat_map(get_files_from_dir)
 }
 
-fn get_files_from_dir(dir: &str) -> impl Iterator<Item = Box<Path>> {
-    fs::read_dir(Path::new(dir))
+fn get_files_from_dir(dir: &XcProvisioningProfileDir) -> impl Iterator<Item = XcProvisioningProfileFile> + '_ {
+    fs::read_dir(dir.path_as_path())
         .unwrap()
         .map(|dir_entry| dir_entry.unwrap().path())
         .filter_map(|path| {
@@ -144,14 +158,14 @@ fn get_files_from_dir(dir: &str) -> impl Iterator<Item = Box<Path>> {
                 .extension()
                 .map_or(false, |ext| ext == "mobileprovision")
             {
-                Some(path.into_boxed_path())
+                Some(XcProvisioningProfileFile{path: path.into_boxed_path(), xc_kind: dir.kind})
             } else {
                 None
             }
         })
 }
 
-fn print_detailed_table(rows: impl Iterator<Item = Result<PrivisionFileData, PrivisionFileData>>) {
+fn print_detailed_table(rows: impl Iterator<Item = Result<ProvisioningProfileFileData, ProvisioningProfileFileData>>) {
     fn encode_to_yaml_str(value: &YamlDocument) -> String {
         serde_yml::to_string(&value).unwrap()
     }

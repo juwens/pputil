@@ -1,25 +1,56 @@
 use clap::{Parser, Subcommand, ValueEnum};
-use std::path::Path;
+use std::{ffi::OsString, path::{Path, PathBuf}, str::FromStr};
 
-#[derive(Parser)]
+const XC_16_DIR: &str = "~/Library/Developer/Xcode/UserData/Provisioning Profiles";
+const XC_15_DIR: &str = "~/Library/MobileDevice/Provisioning Profiles";
+
+#[derive(Parser, std::fmt::Debug)]
 #[command(version, about, long_about = None)]
-pub struct Cli {
+pub struct MyCliArgs {
     #[arg(
         short,
         long,
-        // default_value = "~/Library/MobileDevice/Provisioning Profiles", // XC 15
-        default_values = vec![
-            "~/Library/Developer/Xcode/UserData/Provisioning Profiles", // XC 16
-            "~/Library/MobileDevice/Provisioning Profiles", // XC 15
-        ]
     )]
     pub dirs: Vec<String>,
+
+    // the default and/or expanded paths
+    #[clap(skip)]
+    pub dirs_ex: Vec<XcProvisioningProfileDir>,
 
     #[command(subcommand)]
     pub command: Option<Commands>,
 
     #[arg(short, long, value_enum, default_value_t=TableMode::Compact)]
     pub mode: TableMode,
+}
+
+impl std::fmt::Debug for Commands {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::PrintCompact(arg0) => f.debug_tuple("PrintCompact").field(arg0).finish(),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct XcProvisioningProfileDir {
+    pub path: std::ffi::OsString,
+    pub kind: XcProvisioningProfileDirKind,
+}
+impl XcProvisioningProfileDir {
+    pub(crate) fn path_as_path(&self) -> PathBuf {
+        let expanded = shellexpand::tilde(&self.path.to_str().unwrap()).to_string();
+        let osstr: OsString = OsString::from_str(&expanded).unwrap();
+        osstr.into()
+    }
+}
+impl std::fmt::Display for XcProvisioningProfileDir {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("")
+            .field("path", &self.path)
+            .field("xc", &self.kind)
+            .finish()
+    }
 }
 
 #[derive(Parser)]
@@ -65,8 +96,9 @@ pub enum SortOrder {
     Desc,
 }
 
-pub fn get_processed_args() -> Cli {
-    let mut args = Cli::parse();
+#[allow(clippy::assigning_clones)]
+pub fn get_processed_args() -> MyCliArgs {
+    let mut args = MyCliArgs::parse();
     let input_dirs_expanded: &Vec<String> = &args
         .dirs
         .iter()
@@ -74,13 +106,21 @@ pub fn get_processed_args() -> Cli {
         .collect();
 
     // plausibility check for dirs
-    for dir in input_dirs_expanded.iter() {
+    for dir in input_dirs_expanded {
         let input_dir_path = Path::new(&dir);
         assert!(input_dir_path.is_dir());
         assert!(input_dir_path.is_absolute());
     }
 
     args.dirs = input_dirs_expanded.clone();
+    
+    if args.dirs.is_empty() {
+        args.dirs_ex = vec![
+            XcProvisioningProfileDir{path: XC_16_DIR.into(), kind: XcProvisioningProfileDirKind::Xc16},
+            XcProvisioningProfileDir{path: XC_15_DIR.into(), kind: XcProvisioningProfileDirKind::Xc15},
+        ];
+        args.dirs = args.dirs_ex.iter().map(|x|x.path.to_string_lossy().to_string()).collect();
+    }
     args.command = {
         let a = args.command.unwrap_or_else(|| {
             let cargs = PrintCompactCommandArgs::parse();
@@ -89,5 +129,15 @@ pub fn get_processed_args() -> Cli {
         Some(a)
     };
 
+    dbg!(&args);
+
     args
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum XcProvisioningProfileDirKind {
+    /// less or equal
+    Xc15 = 1,
+    /// greater or equal
+    Xc16 = 2,
 }
