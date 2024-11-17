@@ -3,12 +3,13 @@ use comfy_table::Cell;
 use crate::YamlDocument;
 
 #[derive(Debug)]
-pub struct PrivisionFileData {
+pub struct ProvisioningProfileFileData {
     pub app_id_name: Option<Box<str>>,
     pub name: Option<Box<str>>,
     pub team_name: Option<Box<str>>,
     /// is Xcode managed
     pub xc_managed: Option<bool>,
+    pub xc_kind: Option<Box<str>>,
     pub app_id_prefixes: Option<Vec<Box<str>>>,
     /// expiration date
     pub exp_date: Option<SystemTime>,

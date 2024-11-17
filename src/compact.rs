@@ -1,13 +1,13 @@
-use args::Cli;
+use args::MyCliArgs;
 use chrono::{DateTime, Local};
 use comfy_table::{Cell, Row};
 use std::vec;
 
 use crate::args::Commands;
-use crate::helpers::{IntoCell, PrivisionFileData, UnwrapOrNa, NOT_AVAILABLE};
+use crate::helpers::{IntoCell, ProvisioningProfileFileData, UnwrapOrNa, NOT_AVAILABLE};
 use crate::args;
 
-pub fn print_compact_table(file_data_row: impl Iterator<Item = Result<PrivisionFileData, PrivisionFileData>>, args: &Cli) {
+pub fn print_compact_table(file_data_row: impl Iterator<Item = Result<ProvisioningProfileFileData, ProvisioningProfileFileData>>, args: &MyCliArgs) {
     let mut table = comfy_table::Table::new();
     table
         .load_preset(comfy_table::presets::UTF8_FULL)
@@ -24,6 +24,7 @@ pub fn print_compact_table(file_data_row: impl Iterator<Item = Result<PrivisionF
         "team name",
         "prv\ndvc",
         "UUID",
+        "XC",
     ]);
 
     let mut sorted_file_data_rows = file_data_row.collect::<Vec<_>>();
@@ -103,6 +104,8 @@ pub fn print_compact_table(file_data_row: impl Iterator<Item = Result<PrivisionF
             .into_cell());
 
         add(file_data.uuid.unwrap_or_na().into_cell());
+        
+        add(file_data.xc_kind.unwrap_or_na().into_cell());
 
         table.add_row(table_row);
     }
