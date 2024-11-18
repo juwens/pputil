@@ -1,3 +1,7 @@
+= pputil
+
+:toc:
+
 == pputil provisioning profile tool
 
 === Introduction
@@ -35,4 +39,14 @@ scanning directories:
 ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
 │ Foo Developement               ┆ ABC Development Wildcard ┆ A1B2C3D4E5.de.foo.dev.*       ┆ 2025-12-24 ┆ N   ┆ _   ┆ ABC GmbH  ┆ 60  ┆ 33941f79-483a-4705-a89c-5a778126f603 ┆ 16+ │
 ╰────────────────────────────────┴──────────────────────────┴───────────────────────────────┴────────────┴─────┴─────┴───────────┴─────┴──────────────────────────────────────┴─────╯
+```
+
+=== Build/Run from source
+
+```
+# prerequisite: cargo and rustc
+
+git clone https://github.com/juwens/pputil.git
+cd pputil
+cargo run
 ```
