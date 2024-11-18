@@ -1,0 +1,26 @@
+== pputil provisioning profile tool
+
+=== Introduction
+
+List the provisioning profiles on the current mac on the cli in a table.
+
+Features:
+
+* expired certificates are highligted
+* sorting can be customized
+
+Roadmap:
+
+* delete expired profiles
+* import downloaded profile into the correct location (mimics the import by opening the profile in XC)
+
+=== Example Usage
+
+```
+user@mymac % pputil
+
+scanning directories:
+ * ~/Library/Developer/Xcode/UserData/Provisioning Profiles (Xc16)
+ * ~/Library/MobileDevice/Provisioning Profiles (Xc15)
+
+```
