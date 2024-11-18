@@ -30,7 +30,7 @@ pub fn print_compact_table(file_data_row: impl Iterator<Item = Result<Provisioni
     let mut sorted_file_data_rows = file_data_row.collect::<Vec<_>>();
 
     match &args.command.as_ref().unwrap() {
-        Commands::PrintCompact(compact_args) => {
+        Commands::ListCompact(compact_args) => {
             // match compact_args.sort_by {
             //     CompactSortBy::Name => sorted_file_data_rows.sort_by_key(|x| x.name.unwrap_or_na().to_lowercase()),
             //     CompactSortBy::AppIdName => {
@@ -49,7 +49,7 @@ pub fn print_compact_table(file_data_row: impl Iterator<Item = Result<Provisioni
     let sorted_file_data_rows = sorted_file_data_rows;
 
     let wrap = match &args.command.as_ref().unwrap() {
-        Commands::PrintCompact(compact_args) => compact_args.allow_wrap,
+        Commands::ListCompact(compact_args) => compact_args.allow_wrap,
     };
 
     for parse_file_result in sorted_file_data_rows {

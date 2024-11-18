@@ -7,10 +7,7 @@ const XC_15_DIR: &str = "~/Library/MobileDevice/Provisioning Profiles";
 #[derive(Parser, std::fmt::Debug)]
 #[command(version, about, long_about = None)]
 pub struct MyCliArgs {
-    #[arg(
-        short,
-        long,
-    )]
+    #[arg(short, long)]
     pub dirs: Vec<String>,
 
     // the default and/or expanded paths
@@ -27,7 +24,7 @@ pub struct MyCliArgs {
 impl std::fmt::Debug for Commands {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::PrintCompact(arg0) => f.debug_tuple("PrintCompact").field(arg0).finish(),
+            Self::ListCompact(arg0) => f.debug_tuple("ListCompact").field(arg0).finish(),
         }
     }
 }
@@ -56,7 +53,7 @@ impl std::fmt::Display for XcProvisioningProfileDir {
 #[derive(Parser)]
 // #[derive(Args)]
 #[derive(Debug)]
-pub struct PrintCompactCommandArgs {
+pub struct ListCompactCommandArgs {
     #[arg(value_enum, short, long, value_enum, default_value_t=CompactSortBy::Name)]
     pub sort_by: CompactSortBy,
 
@@ -70,8 +67,8 @@ pub struct PrintCompactCommandArgs {
 #[derive(Subcommand)]
 #[command()]
 pub enum Commands {
-    #[command(name = "print")]
-    PrintCompact(PrintCompactCommandArgs),
+    #[command(name = "list")]
+    ListCompact(ListCompactCommandArgs),
 }
 
 #[derive(Debug, ValueEnum, Clone)]
@@ -123,13 +120,13 @@ pub fn get_processed_args() -> MyCliArgs {
     }
     args.command = {
         let a = args.command.unwrap_or_else(|| {
-            let cargs = PrintCompactCommandArgs::parse();
-            Commands::PrintCompact(cargs)
+            let cargs = ListCompactCommandArgs::parse();
+            Commands::ListCompact(cargs)
         });
         Some(a)
     };
 
-    dbg!(&args);
+        dbg!(&args);
 
     args
 }
