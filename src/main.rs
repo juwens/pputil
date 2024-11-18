@@ -4,7 +4,7 @@
     clippy::redundant_closure_for_method_calls
 )]
 
-use args::{XcProvisioningProfileDirKind, XcProvisioningProfileDir};
+use args::{XcProvisioningProfileDir, XcProvisioningProfileDirKind};
 use chrono::{DateTime, Local};
 use compact::print_compact_table;
 use der::{Decode, Tagged};
@@ -23,8 +23,8 @@ type YamlValue = serde_yml::value::Value;
 type YamlDocument = BTreeMap<String, Option<YamlValue>>;
 
 struct XcProvisioningProfileFile {
-    pub path : Box<Path>,
-    pub xc_kind : XcProvisioningProfileDirKind,
+    pub path: Box<Path>,
+    pub xc_kind: XcProvisioningProfileDirKind,
 }
 
 fn main() {
@@ -34,7 +34,6 @@ fn main() {
     println!("scanning directories:");
     for dir in &args.dirs_ex {
         println!(" * {} ({:?})", dir.path.to_string_lossy(), dir.kind);
-        
     }
     println!();
 
@@ -49,7 +48,9 @@ fn main() {
     println!();
 }
 
-fn parse_file(file: &XcProvisioningProfileFile) -> Result<ProvisioningProfileFileData, ProvisioningProfileFileData> {
+fn parse_file(
+    file: &XcProvisioningProfileFile,
+) -> Result<ProvisioningProfileFileData, ProvisioningProfileFileData> {
     let Ok(pl) = parse_mobileprovision_into_plist(&file.path) else {
         return Err(ProvisioningProfileFileData {
             name: Some(
@@ -143,29 +144,34 @@ fn parse_file(file: &XcProvisioningProfileFile) -> Result<ProvisioningProfileFil
 }
 
 fn get_files(args: &args::MyCliArgs) -> impl Iterator<Item = XcProvisioningProfileFile> + '_ {
-    args
-        .dirs_ex
-        .iter()
-        .flat_map(get_files_from_dir)
+    args.dirs_ex.iter().flat_map(get_files_from_dir)
 }
 
-fn get_files_from_dir(dir: &XcProvisioningProfileDir) -> impl Iterator<Item = XcProvisioningProfileFile> + '_ {
-    fs::read_dir(dir.path_as_path())
-        .unwrap()
-        .map(|dir_entry| dir_entry.unwrap().path())
-        .filter_map(|path| {
-            if path
-                .extension()
-                .map_or(false, |ext| ext == "mobileprovision")
-            {
-                Some(XcProvisioningProfileFile{path: path.into_boxed_path(), xc_kind: dir.kind})
-            } else {
-                None
-            }
-        })
+fn get_files_from_dir(xc_dir: &XcProvisioningProfileDir) -> Vec<XcProvisioningProfileFile> {
+    match fs::read_dir(xc_dir.path_as_path()) {
+        Err(_) => vec![],
+        Ok(dir) => dir
+            .map(|dir_entry| dir_entry.unwrap().path())
+            .filter_map(|path| {
+                if path
+                    .extension()
+                    .map_or(false, |ext| ext == "mobileprovision")
+                {
+                    Some(XcProvisioningProfileFile {
+                        path: path.into_boxed_path(),
+                        xc_kind: xc_dir.kind,
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect(),
+    }
 }
 
-fn print_detailed_table(rows: impl Iterator<Item = Result<ProvisioningProfileFileData, ProvisioningProfileFileData>>) {
+fn print_detailed_table(
+    rows: impl Iterator<Item = Result<ProvisioningProfileFileData, ProvisioningProfileFileData>>,
+) {
     fn encode_to_yaml_str(value: &YamlDocument) -> String {
         serde_yml::to_string(&value).unwrap()
     }
