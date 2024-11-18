@@ -1,5 +1,4 @@
 = pputil - provisioning profile tool for macos
-
 :toc:
 
 == Introduction
@@ -41,10 +40,28 @@ scanning directories:
 
 == Build/Run from source
 
+.install cargo/rust
+[%collapsible]
+====
 ```
-# prerequisite: cargo and rustc
+# get rustup
+brew install rustup
+# or
+https://rustup.rs/
 
+# install rust toolchain
+rustup default stable
+
+# optional
+rustup component add rustfmt
+```
+====
+
+```
 git clone https://github.com/juwens/pputil.git
 cd pputil
 cargo run
+
+# you can hand options to pputil with cargo by using '--'
+cargo run -- --verbose
 ```
