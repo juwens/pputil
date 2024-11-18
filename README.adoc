@@ -40,7 +40,9 @@ scanning directories:
 
 == Install
 
-=== by carg install
+=== by cargo install
+
+The easiest way.
 
 ```
 cargo install --git https://github.com/juwens/pputil.git
