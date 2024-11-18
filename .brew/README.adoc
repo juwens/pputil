@@ -1,0 +1,16 @@
+
+```
+brew update
+brew update
+brew tap
+cd "$(brew --repository homebrew/core)"
+
+# edit ./Formula/p/pputil.rb
+
+git add .
+git commit -m"pputil 1.1.3 (new formula)"
+
+HOMEBREW_NO_INSTALL_FROM_API=1 brew install --build-from-source pputil
+HOMEBREW_NO_INSTALL_FROM_API=1 brew test pputil
+brew audit --new pputil
+```
