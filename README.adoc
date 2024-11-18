@@ -1,8 +1,6 @@
-= pputil
+= pputil - provisioning profile tool for macos
 
 :toc:
-
-== pputil provisioning profile tool
 
 === Introduction
 
