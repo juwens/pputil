@@ -10,8 +10,10 @@ key features:
 * highlighting of expired certificates
 * sorting can be customized
 
-Roadmap:
+=== Roadmap
 
+* get it on brew
+** not yet possible due to brew rules `GitHub repository not notable enough (<30 forks, <30 watchers and <75 stars)`
 * delete expired profiles
 * import downloaded profile into the correct location (mimics the import by opening the profile in XC)
 
