@@ -38,6 +38,16 @@ scanning directories:
 ╰────────────────────────────────┴──────────────────────────┴───────────────────────────────┴────────────┴─────┴─────┴───────────┴─────┴──────────────────────────────────────┴─────╯
 ```
 
+== Install
+
+=== by carg install
+
+```
+cargo install --git https://github.com/juwens/pputil.git
+# it will be installed to '$HOME/.cargo/bin/pputil'
+# add 'export PATH="$HOME/.cargo/bin/:$PATH"' to .zshrc
+```
+
 == Build/Run from source
 
 .install cargo/rust
