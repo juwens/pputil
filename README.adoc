@@ -4,9 +4,10 @@
 
 List the provisioning profiles on the current mac on the cli in a table.
 
-Features:
+key features:
 
-* expired certificates are highligted
+* display a relevant infos in a compact table
+* highlighting of expired certificates
 * sorting can be customized
 
 Roadmap:
@@ -18,9 +19,18 @@ Roadmap:
 
 ```
 user@mymac % pputil
-
 scanning directories:
  * ~/Library/Developer/Xcode/UserData/Provisioning Profiles (Xc16)
  * ~/Library/MobileDevice/Provisioning Profiles (Xc15)
 
+╭────────────────────────────────┬──────────────────────────┬───────────────────────────────┬────────────┬─────┬─────┬───────────┬─────┬──────────────────────────────────────┬─────╮
+│ Profile Name                   ┆ App ID Name              ┆ Entitlements:                 ┆ expir.     ┆ XC  ┆ lcl ┆ team name ┆ prv ┆ UUID                                 ┆ XC  │
+│                                ┆                          ┆ application-identifier        ┆ date       ┆ mgd ┆ prv ┆           ┆ dvc ┆                                      ┆     │
+╞════════════════════════════════╪══════════════════════════╪═══════════════════════════════╪════════════╪═════╪═════╪═══════════╪═════╪══════════════════════════════════════╪═════╡
+│ myproject adhoc provisionin... ┆ myproject Apps           ┆ A1B2C3D4E5.de.abc.myproject.* ┆ 2025-04-22 ┆ N   ┆ _   ┆ ABC GmbH  ┆ 64  ┆ 782a9385-9c89-495b-96dd-6bc29ba329d2 ┆ 16+ │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
+│ iOS Team Provisioning Profi... ┆ ABC Development Wildcard ┆ A1B2C3D4E5.de.abc.dev.*       ┆ 2025-10-06 ┆ Y   ┆ _   ┆ ABC GmbH  ┆ 71  ┆ 58cc1b0b-3fc8-44a1-841b-a59e15b4e862 ┆ 16+ │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
+│ Foo Developement               ┆ ABC Development Wildcard ┆ A1B2C3D4E5.de.foo.dev.*       ┆ 2025-12-24 ┆ N   ┆ _   ┆ ABC GmbH  ┆ 60  ┆ 33941f79-483a-4705-a89c-5a778126f603 ┆ 16+ │
+╰────────────────────────────────┴──────────────────────────┴───────────────────────────────┴────────────┴─────┴─────┴───────────┴─────┴──────────────────────────────────────┴─────╯
 ```
