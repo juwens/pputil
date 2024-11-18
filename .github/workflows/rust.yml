@@ -18,9 +18,11 @@ jobs:
     - uses: actions/checkout@v4
     - name: Build
       run: cargo build --release # --verbose
+    - name: Tar Release
+      run: tar -czvf target/release/pputil.tar.gz -C target/release pputil
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        path: target/release/pputil
+        path: target/release/pputil.tar.gz
     - name: Run tests
       run: cargo test --release # --verbose
