@@ -19,6 +19,9 @@ pub struct MyCliArgs {
 
     #[arg(short, long, value_enum, default_value_t=TableMode::Compact)]
     pub mode: TableMode,
+
+    #[command(flatten)]
+    pub verbose: clap_verbosity_flag::Verbosity,
 }
 
 impl std::fmt::Debug for Commands {
@@ -126,7 +129,9 @@ pub fn get_processed_args() -> MyCliArgs {
         Some(a)
     };
 
+    if args.verbose.is_present() {
         dbg!(&args);
+    }
 
     args
 }
