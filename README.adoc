@@ -40,9 +40,13 @@ scanning directories:
 
 == Install
 
-=== by cargo install
+=== brew
 
-The easiest way.
+```
+brew install juwens/pputil/pputil
+```
+
+=== cargo 
 
 ```
 cargo install --git https://github.com/juwens/pputil.git
