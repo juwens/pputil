@@ -22,8 +22,14 @@ pub struct MyCliArgs {
     #[clap(skip)]
     pub dirs_ex: Vec<XcProvisioningProfileDir>,
 
-    #[command(flatten)]
-    pub verbose: clap_verbosity_flag::Verbosity,
+    #[arg(
+        long,
+        short = 'v',
+        action = clap::ArgAction::Count,
+        global = true,
+        help = "Increase logging verbosity",
+    )]
+    verbose: u8,
 }
 
 impl std::fmt::Debug for Commands {
@@ -135,7 +141,7 @@ pub fn get_processed_args() -> MyCliArgs {
         args.custom_dir = args.dirs_ex.iter().map(|x|x.path.to_string_lossy().to_string()).collect();
     }
 
-    if args.verbose.is_present() {
+    if args.verbose > 0 {
         dbg!(&args);
     }
 
