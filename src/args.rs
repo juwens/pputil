@@ -7,15 +7,20 @@ const XC_15_DIR: &str = "~/Library/MobileDevice/Provisioning Profiles";
 #[derive(Parser, std::fmt::Debug)]
 #[command(version, about, long_about = None)]
 pub struct MyCliArgs {
-    #[arg(short, long)]
-    pub dirs: Vec<String>,
+    #[command(subcommand)]
+    pub command: Option<Commands>,
+
+    /// Override the profile lookup directory with a custom path.
+    /// Can be necessary/helpful, when Xcode changed the path, and pputil wasn't updated yet.
+    /// Should be not needed usually.
+    /// Usage: `cargo run -- --dir "/tmp/" list`
+    #[arg(short('d'), long("dir"))]
+    #[clap(hide=true)]
+    pub custom_dir: Vec<String>,
 
     // the default and/or expanded paths
     #[clap(skip)]
     pub dirs_ex: Vec<XcProvisioningProfileDir>,
-
-    #[command(subcommand)]
-    pub command: Option<Commands>,
 
     #[arg(short, long, value_enum, default_value_t=TableMode::Compact)]
     pub mode: TableMode,
@@ -100,7 +105,7 @@ pub enum SortOrder {
 pub fn get_processed_args() -> MyCliArgs {
     let mut args = MyCliArgs::parse();
     let input_dirs_expanded: &Vec<String> = &args
-        .dirs
+        .custom_dir
         .iter()
         .map(|x| shellexpand::tilde(&x).into())
         .collect();
@@ -112,14 +117,14 @@ pub fn get_processed_args() -> MyCliArgs {
         assert!(input_dir_path.is_absolute());
     }
 
-    args.dirs = input_dirs_expanded.clone();
+    args.custom_dir = input_dirs_expanded.clone();
     
-    if args.dirs.is_empty() {
+    if args.custom_dir.is_empty() {
         args.dirs_ex = vec![
             XcProvisioningProfileDir{path: XC_16_DIR.into(), kind: XcProvisioningProfileDirKind::Xc16},
             XcProvisioningProfileDir{path: XC_15_DIR.into(), kind: XcProvisioningProfileDirKind::Xc15},
         ];
-        args.dirs = args.dirs_ex.iter().map(|x|x.path.to_string_lossy().to_string()).collect();
+        args.custom_dir = args.dirs_ex.iter().map(|x|x.path.to_string_lossy().to_string()).collect();
     }
     args.command = {
         let a = args.command.unwrap_or_else(|| {
