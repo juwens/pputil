@@ -8,6 +8,7 @@ List the provisioning profiles on the current mac on the cli in a table.
 key features:
 
 * display a relevant infos in a compact table
+** dynamic arrangement of content depending on a given width (https://github.com/Nukesor/comfy-table[provided by comfy-table])
 * highlighting of expired certificates
 * sorting can be customized
 
