@@ -8,7 +8,7 @@ const XC_15_DIR: &str = "~/Library/MobileDevice/Provisioning Profiles";
 #[command(version, about, long_about = None)]
 pub struct MyCliArgs {
     #[command(subcommand)]
-    pub command: Option<Commands>,
+    pub command: Commands,
 
     /// Override the profile lookup directory with a custom path.
     /// Can be necessary/helpful, when Xcode changed the path, and pputil wasn't updated yet.
@@ -22,9 +22,6 @@ pub struct MyCliArgs {
     #[clap(skip)]
     pub dirs_ex: Vec<XcProvisioningProfileDir>,
 
-    #[arg(short, long, value_enum, default_value_t=TableMode::Compact)]
-    pub mode: TableMode,
-
     #[command(flatten)]
     pub verbose: clap_verbosity_flag::Verbosity,
 }
@@ -32,7 +29,8 @@ pub struct MyCliArgs {
 impl std::fmt::Debug for Commands {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ListCompact(arg0) => f.debug_tuple("ListCompact").field(arg0).finish(),
+            Commands::List(args) => f.debug_tuple("ListCompact").field(args).finish(),
+            Commands::ListExtended(args) => f.debug_tuple("ListExtended").field(args).finish(),
         }
     }
 }
@@ -58,25 +56,33 @@ impl std::fmt::Display for XcProvisioningProfileDir {
     }
 }
 
-#[derive(Parser)]
-// #[derive(Args)]
-#[derive(Debug)]
-pub struct ListCompactCommandArgs {
+#[derive(Debug, Parser)]
+pub struct ListCompactArgs {
     #[arg(value_enum, short, long, value_enum, default_value_t=CompactSortBy::Name)]
     pub sort_by: CompactSortBy,
 
     #[arg(value_enum, short='o', long="order", default_value_t=SortOrder::Asc)]
     pub sort_order: SortOrder,
 
+    /// Prevent truncation of text. Instead wrap long strings into a new line.
     #[arg(short = 'w', long = "wrap", default_value_t = false)]
     pub allow_wrap: bool,
+}
+
+#[derive(Parser, Debug)]
+pub struct ListExtendedArgs {
+
 }
 
 #[derive(Subcommand)]
 #[command()]
 pub enum Commands {
+    /// print a compact table with one profile per line. Ideal for a quick overview of all profiles.
     #[command(name = "list")]
-    ListCompact(ListCompactCommandArgs),
+    List(ListCompactArgs),
+    /// print an extended table with several lines per profile. When you need more infos.
+    #[command(name = "list-ext")]
+    ListExtended(ListExtendedArgs),
 }
 
 #[derive(Debug, ValueEnum, Clone)]
@@ -89,16 +95,18 @@ pub enum CompactSortBy {
     ExpirationDate,
 }
 
-#[derive(Debug, ValueEnum, Clone)]
-pub enum TableMode {
-    Compact,
-    Detailed,
-}
-
-#[derive(Debug, ValueEnum, Clone)]
+#[derive(Debug, ValueEnum, Clone, PartialEq)]
 pub enum SortOrder {
     Asc,
     Desc,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum XcProvisioningProfileDirKind {
+    /// less or equal
+    Xc15 = 1,
+    /// greater or equal
+    Xc16 = 2,
 }
 
 #[allow(clippy::assigning_clones)]
@@ -126,25 +134,10 @@ pub fn get_processed_args() -> MyCliArgs {
         ];
         args.custom_dir = args.dirs_ex.iter().map(|x|x.path.to_string_lossy().to_string()).collect();
     }
-    args.command = {
-        let a = args.command.unwrap_or_else(|| {
-            let cargs = ListCompactCommandArgs::parse();
-            Commands::ListCompact(cargs)
-        });
-        Some(a)
-    };
 
     if args.verbose.is_present() {
         dbg!(&args);
     }
 
     args
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum XcProvisioningProfileDirKind {
-    /// less or equal
-    Xc15 = 1,
-    /// greater or equal
-    Xc16 = 2,
 }

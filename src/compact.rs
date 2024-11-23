@@ -1,13 +1,12 @@
-use args::MyCliArgs;
 use chrono::{DateTime, Local};
 use comfy_table::{Cell, Row};
 use std::vec;
 
-use crate::args::Commands;
+use crate::args::ListCompactArgs;
 use crate::helpers::{IntoCell, ProvisioningProfileFileData, UnwrapOrNa, NOT_AVAILABLE};
 use crate::args;
 
-pub fn print_compact_table(file_data_row: impl Iterator<Item = Result<ProvisioningProfileFileData, ProvisioningProfileFileData>>, args: &MyCliArgs) {
+pub fn print_compact_table(file_data_row: impl Iterator<Item = Result<ProvisioningProfileFileData, ProvisioningProfileFileData>>, args: &ListCompactArgs) {
     let mut table = comfy_table::Table::new();
     table
         .load_preset(comfy_table::presets::UTF8_FULL)
@@ -29,33 +28,25 @@ pub fn print_compact_table(file_data_row: impl Iterator<Item = Result<Provisioni
 
     let mut sorted_file_data_rows = file_data_row.collect::<Vec<_>>();
 
-    match &args.command.as_ref().unwrap() {
-        Commands::ListCompact(compact_args) => {
-            // match compact_args.sort_by {
-            //     CompactSortBy::Name => sorted_file_data_rows.sort_by_key(|x| x.name.unwrap_or_na().to_lowercase()),
-            //     CompactSortBy::AppIdName => {
-            //         sorted_file_data_rows.sort_by_key(|x| x.app_id_name.unwrap_or_na().to_lowercase());
-            //     }
-            //     CompactSortBy::ExpirationDate => {
-            //         sorted_file_data_rows.sort_by_key(|x| x.exp_date.to_string().as_deref().map(str::to_lowercase));
-            //     }
-            // };
-            match compact_args.sort_order {
-                args::SortOrder::Asc => {}
-                args::SortOrder::Desc => sorted_file_data_rows.reverse(),
-            }
-        }
-    };
+    // match compact_args.sort_by {
+    //     CompactSortBy::Name => sorted_file_data_rows.sort_by_key(|x| x.name.unwrap_or_na().to_lowercase()),
+    //     CompactSortBy::AppIdName => {
+    //         sorted_file_data_rows.sort_by_key(|x| x.app_id_name.unwrap_or_na().to_lowercase());
+    //     }
+    //     CompactSortBy::ExpirationDate => {
+    //         sorted_file_data_rows.sort_by_key(|x| x.exp_date.to_string().as_deref().map(str::to_lowercase));
+    //     }
+    // };
+    if args.sort_order == args::SortOrder::Desc {
+        sorted_file_data_rows.reverse();
+    }
+        
     let sorted_file_data_rows = sorted_file_data_rows;
-
-    let wrap = match &args.command.as_ref().unwrap() {
-        Commands::ListCompact(compact_args) => compact_args.allow_wrap,
-    };
 
     for parse_file_result in sorted_file_data_rows {
         let mut table_row: Row = Row::new();
 
-        if !wrap {
+        if !args.allow_wrap {
             table_row.max_height(1);
         }
 
