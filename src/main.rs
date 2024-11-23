@@ -4,7 +4,7 @@
     clippy::redundant_closure_for_method_calls
 )]
 
-use args::{XcProvisioningProfileDir, XcProvisioningProfileDirKind};
+use args::{ListExtendedArgs, XcProvisioningProfileDir, XcProvisioningProfileDirKind};
 use chrono::{DateTime, Local};
 use compact::print_compact_table;
 use der::{Decode, Tagged};
@@ -40,9 +40,9 @@ fn main() {
     let files = get_files(&args).collect::<Vec<_>>();
     let file_data_rows = files.iter().map(parse_file);
 
-    match args.mode {
-        args::TableMode::Compact => print_compact_table(file_data_rows, &args),
-        args::TableMode::Detailed => print_detailed_table(file_data_rows),
+    match args.command {
+        args::Commands::List(x) => print_compact_table(file_data_rows, &x),
+        args::Commands::ListExtended(x) => print_extended_table(file_data_rows, &x),
     };
 
     println!();
@@ -169,8 +169,9 @@ fn get_files_from_dir(xc_dir: &XcProvisioningProfileDir) -> Vec<XcProvisioningPr
     }
 }
 
-fn print_detailed_table(
+fn print_extended_table(
     rows: impl Iterator<Item = Result<ProvisioningProfileFileData, ProvisioningProfileFileData>>,
+    _args: &ListExtendedArgs,
 ) {
     fn encode_to_yaml_str(value: &YamlDocument) -> String {
         serde_yml::to_string(&value).unwrap()
