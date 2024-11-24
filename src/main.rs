@@ -32,12 +32,16 @@ fn main() {
 
     println!();
     println!("scanning directories:");
-    for dir in &args.dirs_ex {
-        println!(" * {} ({:?})", dir.path.to_string_lossy(), dir.kind);
+    for dir in &args.actual_dirs() {
+        println!(
+            " * {} ({:?})",
+            dir.relative_path.to_string_lossy(),
+            dir.kind
+        );
     }
     println!();
 
-    let files = get_files(&args).collect::<Vec<_>>();
+    let files = get_files_from_dirs(&args.actual_dirs());
     let file_data_rows = files.iter().map(parse_file);
 
     match args.command {
@@ -93,6 +97,7 @@ fn parse_file(
         xc_kind: match file.xc_kind {
             XcProvisioningProfileDirKind::Xc15 => Some("15-".into()),
             XcProvisioningProfileDirKind::Xc16 => Some("16+".into()),
+            XcProvisioningProfileDirKind::Custom => Some("custom".into()),
         },
         name: pl
             .get("Name")
@@ -143,12 +148,12 @@ fn parse_file(
     Ok(row)
 }
 
-fn get_files(args: &args::MyCliArgs) -> impl Iterator<Item = XcProvisioningProfileFile> + '_ {
-    args.dirs_ex.iter().flat_map(get_files_from_dir)
+fn get_files_from_dirs(dirs: &[XcProvisioningProfileDir]) -> Vec<XcProvisioningProfileFile> {
+    dirs.iter().flat_map(get_files_from_dir).collect::<Vec<_>>()
 }
 
 fn get_files_from_dir(xc_dir: &XcProvisioningProfileDir) -> Vec<XcProvisioningProfileFile> {
-    match fs::read_dir(xc_dir.path_as_path()) {
+    match fs::read_dir(xc_dir.absolute_path()) {
         Err(_) => vec![],
         Ok(dir) => dir
             .map(|dir_entry| dir_entry.unwrap().path())
