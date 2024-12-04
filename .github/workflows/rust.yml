@@ -1,4 +1,4 @@
-name: Rust
+name: Push at Main
 
 on:
   push:

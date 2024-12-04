@@ -1,6 +1,11 @@
+name: On Release Created
 on:
   release:
     types: [created]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   release:
@@ -12,10 +17,30 @@ jobs:
         target: [aarch64-apple-darwin, x86_64-apple-darwin]
     steps:
       - uses: actions/checkout@master
-      - name: Compile and release
-        uses: rust-build/rust-build.action@v1.4.5
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Add Platform Arch Target
+        run: rustup target add x86_64-apple-darwin
+      - name: Build Release
+        id: compile
+        run: cargo build --release --target=${{ matrix.target }} # --verbose
+      - run: pwd
+      - run: ls -lh
+      - run: ls -lh target
+      - run: ls -lh target/*/
+      - run: ls -lh target/release
+      - run: |
+          brew install tree
+          tree target -I deps -I build -hp --du
+
+      # - name: Compile and release
+      #   uses: rust-build/rust-build.action@v1.4.5
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     RUSTTARGET: ${{ matrix.target }}
+      #     ARCHIVE_TYPES: ${{ matrix.archive }}
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          RUSTTARGET: ${{ matrix.target }}
-          ARCHIVE_TYPES: ${{ matrix.archive }}
+          path: |
+            target/${{ matrix.target }}/release/pputil
