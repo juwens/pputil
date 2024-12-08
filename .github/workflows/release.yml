@@ -5,15 +5,15 @@ on:
 jobs:
   release:
     name: release ${{ matrix.target }}
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     strategy:
       fail-fast: false
       matrix:
         include:
           - target: aarch64-apple-darwin
             archive: tar.gz
-          #- target: x86_64-apple-darwin
-          #  archive: tar.gz
+          - target: x86_64-apple-darwin
+            archive: tar.gz
     steps:
       - uses: actions/checkout@master
       - name: Compile and release
