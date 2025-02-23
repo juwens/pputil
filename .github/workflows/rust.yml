@@ -29,10 +29,13 @@ jobs:
           target/release/pputil
     - name: Run tests
       run: cargo test --release # --verbose
-    - name: Compile and release
-      uses: rust-build/rust-build.action@v1.4.5
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+     # sadly, action "rust-build/rust-build.action" is only supported on linux runners
+    - uses: "marvinpinto/action-automatic-releases@latest"
       with:
-        RUSTTARGET: ${{ matrix.target }}
-        EXTRA_FILES: "README.md LICENSE"
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "latest"
+        prerelease: true
+        title: "Development Build"
+        files: |
+          LICENSE.txt
+          target/release/pputil
