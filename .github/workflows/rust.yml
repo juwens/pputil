@@ -34,6 +34,15 @@ jobs:
       run: |
         echo "$GITHUB_OUTPUT"
         echo "cargo_version=v$(yq .package.version Cargo.toml)" >> $GITHUB_OUTPUT
+    - name: echo version in shell
+      run: |
+        cat  "$GITHUB_OUTPUT"
+    - name: echo verion in js
+      run: |
+        console.log(steps.version.outputs.cargo_version)
+        console.log(${{ steps.version.outputs.cargo_version }})
+        console.log(JSON.stringify(steps.version.outputs))
+        console.log(context)
     - name: Create tag
       uses: actions/github-script@v5
       with:
