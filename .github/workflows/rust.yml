@@ -29,6 +29,20 @@ jobs:
           target/release/pputil
     - name: Run tests
       run: cargo test --release # --verbose
+    - name: extract version from cargo.toml
+      id: version
+      run: |
+        cargo_version="v$(yq .package.version Cargo.toml)"
+    - name: Create tag
+      uses: actions/github-script@v5
+      with:
+        script: |
+          github.rest.git.createRef({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: 'refs/tags/${{ steps.version.outputs.cargo_version }}',
+            sha: context.sha
+          })
      # sadly, action "rust-build/rust-build.action" is only supported on linux runners
     - name: release
       env:
