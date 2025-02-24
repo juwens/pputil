@@ -32,7 +32,8 @@ jobs:
     - name: extract version from cargo.toml
       id: version
       run: |
-        cargo_version="v$(yq .package.version Cargo.toml)"
+        echo "$GITHUB_OUTPUT"
+        echo "cargo_version=v$(yq .package.version Cargo.toml)" >> $GITHUB_OUTPUT
     - name: Create tag
       uses: actions/github-script@v5
       with:
