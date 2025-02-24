@@ -38,11 +38,13 @@ jobs:
       run: |
         cat  "$GITHUB_OUTPUT"
     - name: echo verion in js
-      run: |
-        console.log(steps.version.outputs.cargo_version)
-        console.log(${{ steps.version.outputs.cargo_version }})
-        console.log(JSON.stringify(steps.version.outputs))
-        console.log(context)
+      uses: actions/github-script@v5
+      with:
+        script: |
+          console.log(steps.version.outputs.cargo_version)
+          console.log(${{ steps.version.outputs.cargo_version }})
+          console.log(JSON.stringify(steps.version.outputs))
+          console.log(context)
     - name: Create tag
       uses: actions/github-script@v5
       with:
