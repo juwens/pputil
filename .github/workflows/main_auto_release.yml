@@ -80,10 +80,12 @@ jobs:
           script: |
             console.log(global);
             console.log(context);
+            console.log(arguments);
 
             const version = 'v0.0.0';
 
-            await octokit.request('POST /repos/{owner}/{repo}/releases', {
+            //await octokit.request('POST /repos/{owner}/{repo}/releases', {
+            await github.request('POST /repos/{owner}/{repo}/releases', {
               owner: 'OWNER',
               repo: 'REPO',
               tag_name: version,
