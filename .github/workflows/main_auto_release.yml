@@ -63,7 +63,9 @@ jobs:
       #   GH_TOKEN: ${{ github.token }}
       with:
         script: |
-          for(var b in window) { 
+          console.log(global);
+          
+          for(var b in global) { 
             if(window.hasOwnProperty(b)) console.log(b); 
           }
 
