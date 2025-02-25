@@ -62,12 +62,6 @@ jobs:
       #   GH_TOKEN: ${{ github.token }}
       with:
         script: |
-          import { Octokit } from "@octokit/core";
-
-          const octokit = new Octokit({
-            auth: '${{ github.token }}'
-          });
-
           await octokit.request('POST /repos/{owner}/{repo}/releases', {
             owner: 'OWNER',
             repo: 'REPO',
