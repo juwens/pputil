@@ -33,30 +33,18 @@ jobs:
       id: version
       run: |
         echo "$GITHUB_OUTPUT"
+        cat "$GITHUB_OUTPUT"
+        echo "-----"
         echo "cargo_version=v$(yq .package.version Cargo.toml)" >> $GITHUB_OUTPUT
-    - name: echo version in shell
-      run: |
-        cat  "$GITHUB_OUTPUT"
-    - name: echo version in js 1
-      uses: actions/github-script@v7
-      if: always()
-      with:
-        script: console.log(steps.version.outputs.cargo_version)
-    - name: echo version in js 2
-      uses: actions/github-script@v7
-      if: always()
-      with:
-        script: console.log("${{ steps.version.outputs.cargo_version }}")
-    - name: echo version in js 3
-      uses: actions/github-script@v7
-      if: always()
-      with:
-        script: console.log(JSON.stringify(steps.version.outputs))
+        echo "-----"
+        cat "$GITHUB_OUTPUT"
     - name: echo version in js 4
       uses: actions/github-script@v7
       if: always()
       with:
-        script: console.log(context)
+        script: |
+          console.log("${{ steps.version.outputs.cargo_version }}")
+          console.log(context)
       
     - name: Create tag
       uses: actions/github-script@v5
