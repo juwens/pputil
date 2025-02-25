@@ -59,9 +59,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/juwens/pputil/issues
       - uses: actions/github-script@v7
+        if: always()
         id: my-script-on-mac
         with:
           result-encoding: string
@@ -69,7 +68,9 @@ jobs:
           retry-exempt-status-codes: 400,401
           script: |
             console.log({
-              callee: arguments.callee.toString()
+              arguments_callee_desc: arguments.callee.toString(),
+              arguments_len: arguments.length,
+              arguments_allee: arguments.callee,
             });
             
             //octokit.rest.issues.get({
@@ -78,9 +79,14 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
             })
-      - name: create gh release
-        uses: actions/github-script@v7
+      - run: |
+          gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/juwens/pputil/issues
         if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: create gh release
+        if: always()
+        uses: actions/github-script@v7
         # env:
         #   GH_TOKEN: ${{ github.token }}
         with:
