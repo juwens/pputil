@@ -66,7 +66,10 @@ jobs:
         retries: 3
         retry-exempt-status-codes: 400,401
         script: |
+          import { Octokit, App } from "octokit";
+          
           const octokit = new Octokit({ auth: '${{ github.token }}' });
+          
           octokit.rest.issues.get({
             issue_number: context.issue.number,
             owner: context.repo.owner,
