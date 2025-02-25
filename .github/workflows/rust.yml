@@ -32,10 +32,9 @@ jobs:
     - name: extract version from cargo.toml
       id: version
       run: |
-        echo "$GITHUB_OUTPUT"
-        cat "$GITHUB_OUTPUT"
-        echo "-----"
         echo "cargo_version=v$(yq .package.version Cargo.toml)" >> $GITHUB_OUTPUT
+        echo "-----"
+        echo "$GITHUB_OUTPUT"
         echo "-----"
         cat "$GITHUB_OUTPUT"
     - name: echo version in js 4
