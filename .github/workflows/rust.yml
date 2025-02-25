@@ -38,22 +38,22 @@ jobs:
       run: |
         cat  "$GITHUB_OUTPUT"
     - name: echo version in js 1
-      uses: actions/github-script@v5
+      uses: actions/github-script@v7
       if: always()
       with:
         script: console.log(steps.version.outputs.cargo_version)
     - name: echo version in js 2
-      uses: actions/github-script@v5
+      uses: actions/github-script@v7
       if: always()
       with:
         script: console.log("${{ steps.version.outputs.cargo_version }}")
     - name: echo version in js 3
-      uses: actions/github-script@v5
+      uses: actions/github-script@v7
       if: always()
       with:
         script: console.log(JSON.stringify(steps.version.outputs))
     - name: echo version in js 4
-      uses: actions/github-script@v5
+      uses: actions/github-script@v7
       if: always()
       with:
         script: console.log(context)
