@@ -70,7 +70,8 @@ jobs:
             console.log({
               arguments_callee_desc: arguments.callee.toString(),
               arguments_len: arguments.length,
-              arguments_allee: arguments.callee,
+              arguments_callee: arguments.callee,
+              arguments: arguments,
             });
             
             //octokit.rest.issues.get({
