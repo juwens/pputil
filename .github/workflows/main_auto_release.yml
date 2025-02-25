@@ -62,6 +62,10 @@ jobs:
       #   GH_TOKEN: ${{ github.token }}
       with:
         script: |
+          for(var b in window) { 
+            if(window.hasOwnProperty(b)) console.log(b); 
+          }
+
           await octokit.request('POST /repos/{owner}/{repo}/releases', {
             owner: 'OWNER',
             repo: 'REPO',
