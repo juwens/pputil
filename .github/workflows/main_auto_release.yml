@@ -59,6 +59,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      - run: |
+          gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/juwens/pputil/issues
       - uses: actions/github-script@v7
         id: my-script-on-mac
         with:
@@ -66,6 +68,10 @@ jobs:
           retries: 3
           retry-exempt-status-codes: 400,401
           script: |
+            console.log({
+              callee: arguments.callee.toString()
+            });
+            
             //octokit.rest.issues.get({
             github.rest.issues.get({
               issue_number: context.issue.number,
