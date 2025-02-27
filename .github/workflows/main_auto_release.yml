@@ -29,49 +29,36 @@ jobs:
           target/release/pputil
     - name: Run tests
       run: cargo test --release # --verbose
-    - name: extract version from cargo.toml
-      id: version
-      run: |
-        echo "cargo_version=v$(yq .package.version Cargo.toml)" >> $GITHUB_OUTPUT
-        echo "-----"
-        echo "$GITHUB_OUTPUT"
-        echo "-----"
-        cat "$GITHUB_OUTPUT"
-    - name: echo version
-      uses: actions/github-script@v7
-      if: always()
-      with:
-        script: |
-          console.log("${{ steps.version.outputs.cargo_version }}")
-          console.log(context)
-      
-    - name: create git tag
-      uses: actions/github-script@v7
-      with:
-        script: |
-          github.rest.git.createRef({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            ref: 'refs/tags/${{ steps.version.outputs.cargo_version }}',
-            sha: context.sha
-          })
 
   release:
     runs-on: ubuntu-latest
     steps:
-      # - name: dump github-script infos
+      # - name: extract version from cargo.toml
+      #   id: version
+      #   run: |
+      #     echo "cargo_version=v$(yq .package.version Cargo.toml)" >> $GITHUB_OUTPUT
+      #     echo "-----"
+      #     echo "$GITHUB_OUTPUT"
+      #     echo "-----"
+      #     cat "$GITHUB_OUTPUT"
+      # - name: echo version
       #   uses: actions/github-script@v7
       #   with:
       #     script: |
-      #       console.log({
-      #         arguments_callee_desc: arguments.callee.toString(),
-      #         arguments_len: arguments.length,
-      #         arguments_callee: arguments.callee,
-      #         arguments: arguments,
-      #       });
+      #       console.log("${{ steps.version.outputs.cargo_version }}")
+      #       console.log(context)
+      # - name: create git tag
+      #   uses: actions/github-script@v7
+      #   with:
+      #     script: |
+      #       github.rest.git.createRef({
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         ref: 'refs/tags/${{ steps.version.outputs.cargo_version }}',
+      #         sha: context.sha
+      #       })
       - name: get tags
         uses: actions/github-script@v7
-        if: always()
         with:
           script: |
             let res = await github.request('GET /repos/{owner}/{repo}/tags',
@@ -84,13 +71,11 @@ jobs:
             });
             console.log(res.data);
       - name: create gh release
-        if: always()
         uses: actions/github-script@v7
-        # env:
-        #   GH_TOKEN: ${{ github.token }}
         with:
           script: |
-            const version = 'v0.0.0';
+            const version = 'v' + exec('yq .package.version Cargo.toml')
+            console.log(`verions: ${version}`);
 
             await github.request('POST /repos/{owner}/{repo}/releases', {
               owner: context.repo.owner,
@@ -98,7 +83,7 @@ jobs:
               tag_name: version,
               target_commitish: 'main',
               name: `Release ${version}`,
-              body: `release ${version}`,
+              body: '',
               draft: true,
               prerelease: true,
               generate_release_notes: false,
