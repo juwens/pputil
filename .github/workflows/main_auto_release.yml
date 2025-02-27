@@ -34,19 +34,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # - name: extract version from cargo.toml
-      #   id: version
-      #   run: |
-      #     echo "cargo_version=v$(yq .package.version Cargo.toml)" >> $GITHUB_OUTPUT
-      #     echo "-----"
-      #     echo "$GITHUB_OUTPUT"
-      #     echo "-----"
-      #     cat "$GITHUB_OUTPUT"
+      - name: extract version from cargo.toml
+        id: cargo_toml
+        run: |
+          echo "package__version=v$(yq .package.version Cargo.toml)" >> $GITHUB_OUTPUT
       # - name: echo version
       #   uses: actions/github-script@v7
       #   with:
       #     script: |
-      #       console.log("${{ steps.version.outputs.cargo_version }}")
+      #       console.log("${{ steps.cargo_toml.outputs.package__version }}")
       #       console.log(context)
       # - name: create git tag
       #   uses: actions/github-script@v7
@@ -55,7 +51,7 @@ jobs:
       #       github.rest.git.createRef({
       #         owner: context.repo.owner,
       #         repo: context.repo.repo,
-      #         ref: 'refs/tags/${{ steps.version.outputs.cargo_version }}',
+      #         ref: 'refs/tags/${{ steps.cargo_toml.outputs.package__version }}',
       #         sha: context.sha
       #       })
       - name: get tags
@@ -76,14 +72,7 @@ jobs:
         with:
           script: |
             // 1.2.3
-            let raw_version = "";
-            await exec.exec('yq', ['.package.version', 'Cargo.toml'], {
-              listeners = {
-                stdout: (data /*: Buffer*/) => {
-                  raw_version += data.toString();
-                }
-              }
-            });
+            let raw_version = '${{ steps.cargo_toml.outputs.package__version }}';
             // v1.2.3
             let version = `v${raw_version}`;
             console.log(`raw_version: ${raw_version}`);
