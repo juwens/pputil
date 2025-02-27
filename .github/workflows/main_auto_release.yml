@@ -95,6 +95,7 @@ jobs:
             let d = createReleaseRes.data;
             console.log({
               url: d.url,
+              html_url: d.html_url,
               tag_name: d.tag_name,
               name: d.name,
               draft: d.draft,
