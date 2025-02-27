@@ -74,7 +74,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const version = 'v' + exec('yq .package.version Cargo.toml')
+            const version = 'v' + exec.exec('yq .package.version Cargo.toml')
             console.log(`verions: ${version}`);
 
             await github.request('POST /repos/{owner}/{repo}/releases', {
