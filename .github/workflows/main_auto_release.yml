@@ -79,6 +79,7 @@ jobs:
             let raw_version = await exec.exec('yq', ['.package.version', 'Cargo.toml']);
             // v1.2.3
             let version = `v${raw_version}`;
+            console.log(`raw_version: ${raw_version}`);
             console.log(`version: ${version}`);
 
             let createReleaseRes = await github.request('POST /repos/{owner}/{repo}/releases', {
