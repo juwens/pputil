@@ -74,11 +74,15 @@ jobs:
         if: always()
         with:
           script: |
-            await github.request('GET /repos/{owner}/{repo}/tags',
+            let res = await github.request('GET /repos/{owner}/{repo}/tags',
             {
               owner: context.repo.owner,
               repo: context.repo.repo,
+              headers: {
+                'X-GitHub-Api-Version': '2022-11-28'
+              }
             });
+            console.log(res);
       - run: |
           gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/juwens/pputil/tags
         if: always()
