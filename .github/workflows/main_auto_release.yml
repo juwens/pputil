@@ -74,7 +74,7 @@ jobs:
         if: always()
         with:
           script: |
-            await octokit.request('GET /repos/{owner}/{repo}/tags',
+            await github.request('GET /repos/{owner}/{repo}/tags',
             {
               owner: context.repo.owner,
               repo: context.repo.repo,
