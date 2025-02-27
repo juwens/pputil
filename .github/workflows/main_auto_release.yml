@@ -82,12 +82,7 @@ jobs:
                 'X-GitHub-Api-Version': '2022-11-28'
               }
             });
-            console.log(res);
-      - run: |
-          gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/juwens/pputil/tags
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
+            console.log(res.data);
       - name: create gh release
         if: always()
         uses: actions/github-script@v7
@@ -97,16 +92,15 @@ jobs:
           script: |
             const version = 'v0.0.0';
 
-            //await octokit.request('POST /repos/{owner}/{repo}/releases', {
             await github.request('POST /repos/{owner}/{repo}/releases', {
-              owner: 'OWNER',
-              repo: 'REPO',
+              owner: context.repo.owner,
+              repo: context.repo.repo,
               tag_name: version,
-              target_commitish: 'master',
+              target_commitish: 'main',
               name: `Release ${version}`,
               body: `release ${version}`,
-              draft: false,
-              prerelease: false,
+              draft: true,
+              prerelease: true,
               generate_release_notes: false,
               headers: {
                 'X-GitHub-Api-Version': '2022-11-28'
