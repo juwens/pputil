@@ -74,7 +74,7 @@ jobs:
           script: |
             // v1.2.3
             let version = `v${{ steps.cargo_toml.outputs.package__version }}`;
-            console.log(`raw_version: ${raw_version}`);
+            console.log('raw_version: ${{ steps.cargo_toml.outputs.package__version }}');
             console.log(`version: ${version}`);
 
             let createReleaseRes = await github.request('POST /repos/{owner}/{repo}/releases', {
