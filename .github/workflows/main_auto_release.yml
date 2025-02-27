@@ -69,15 +69,16 @@ jobs:
       #         arguments_callee: arguments.callee,
       #         arguments: arguments,
       #       });
-      - name: try to get issues
+      - name: get tags
         uses: actions/github-script@v7
         if: always()
         with:
           script: |
-            github.rest.issues.get({
+            await octokit.request('GET /repos/{owner}/{repo}/tags',
+            {
               owner: context.repo.owner,
               repo: context.repo.repo,
-            })
+            });
       - run: |
           gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/juwens/pputil/issues
         if: always()
@@ -90,10 +91,6 @@ jobs:
         #   GH_TOKEN: ${{ github.token }}
         with:
           script: |
-            console.log(global);
-            console.log(context);
-            console.log(arguments);
-
             const version = 'v0.0.0';
 
             //await octokit.request('POST /repos/{owner}/{repo}/releases', {
