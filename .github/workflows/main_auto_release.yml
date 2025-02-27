@@ -33,6 +33,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       # - name: extract version from cargo.toml
       #   id: version
       #   run: |
@@ -76,7 +77,7 @@ jobs:
           script: |
             console.log((await exec.exec('pwd')));
             console.log((await exec.exec('ls -lh')));
-            
+
             const version = 'v' + (await exec.exec('yq', ['.package.version', 'Cargo.toml']));
             console.log(`verions: ${version}`);
 
