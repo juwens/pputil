@@ -76,7 +76,14 @@ jobs:
         with:
           script: |
             // 1.2.3
-            let raw_version = await exec.exec('yq', ['.package.version', 'Cargo.toml']);
+            let raw_version = "";
+            await exec.exec('yq', ['.package.version', 'Cargo.toml'], {
+              listeners = {
+                stdout: (data /*: Buffer*/) => {
+                  raw_version += data.toString();
+                }
+              }
+            });
             // v1.2.3
             let version = `v${raw_version}`;
             console.log(`raw_version: ${raw_version}`);
