@@ -40,12 +40,6 @@ jobs:
         run: |
           echo "package__version=$(yq .package.version Cargo.toml)" >> $GITHUB_OUTPUT
           echo "tag=v$(yq .package.version Cargo.toml)" >> $GITHUB_OUTPUT
-      # - name: echo version
-      #   uses: actions/github-script@v7
-      #   with:
-      #     script: |
-      #       console.log("${{ steps.cargo_toml.outputs.package__version }}")
-      #       console.log(context)
       # - name: create git tag
       #   uses: actions/github-script@v7
       #   with:
