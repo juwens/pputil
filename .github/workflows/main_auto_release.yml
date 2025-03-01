@@ -50,14 +50,15 @@ jobs:
       #         ref: 'refs/tags/${{ steps.cargo_toml.outputs.package__version }}',
       #         sha: context.sha
       #       })
-      - name: get tags
+      - name: create tag if not present
         uses: actions/github-script@v7
         with:
           script: |
-            let res = await github.request('GET /repos/{owner}/{repo}/tags',
+            let res = await github.request('GET /repos/{owner}/{repo}/tags/{tag}',
             {
               owner: context.repo.owner,
               repo: context.repo.repo,
+              tag: '${{ steps.cargo_toml.outputs.package__version }}'
               headers: {
                 'X-GitHub-Api-Version': '2022-11-28'
               }
