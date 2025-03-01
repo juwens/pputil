@@ -58,7 +58,7 @@ jobs:
             {
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag: '${{ steps.cargo_toml.outputs.package__version }}'
+              tag: '${{ steps.cargo_toml.outputs.tag }}',
               headers: {
                 'X-GitHub-Api-Version': '2022-11-28'
               }
