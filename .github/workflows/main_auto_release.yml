@@ -33,6 +33,10 @@ jobs:
   release:
     needs: [build]
     runs-on: ubuntu-latest
+#    permissions:
+#      contents: write 
+# https://docs.github.com/en/rest/git/tags?apiVersion=2022-11-28#create-a-tag-object--fine-grained-access-tokens
+# https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#permissions-for-the-github_token
     steps:
       - uses: actions/checkout@v4
       - name: extract version from cargo.toml
@@ -50,10 +54,24 @@ jobs:
       #         ref: 'refs/tags/${{ steps.cargo_toml.outputs.package__version }}',
       #         sha: context.sha
       #       })
+      - name: create tag with curl
+        env:
+          GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+        run: |
+          curl -L \
+          -X POST \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer $GH_TOKEN" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          https://api.github.com/repos/OWNER/REPO/git/tags \
+          -d '{"tag":"v0.0.1","message":"initial version","object":"${{ github.sha }}","type":"commit","tagger":{"name":"Monalisa Octocat","email":"octocat@github.com","date":"2011-06-17T14:53:35-07:00"}}'
       - name: create tag
         uses: actions/github-script@v7
         with:
           script: |
+            console.log({
+
+            });
             let res = await github.request('POST /repos/{owner}/{repo}/git/tags', {
               owner: context.repo.owner,
               repo: context.repo.owner,
