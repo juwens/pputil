@@ -54,16 +54,38 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            let res = await github.request('GET /repos/{owner}/{repo}/tags/{tag}',
-            {
+            await github.request('POST /repos/{owner}/{repo}/git/tags', {
               owner: context.repo.owner,
-              repo: context.repo.repo,
+              repo: context.repo.owner,
               tag: '${{ steps.cargo_toml.outputs.tag }}',
+              message: 'automatic creating tag ${{ steps.cargo_toml.outputs.tag }}',
+              object: 'c3d0be41ecbe669545ee3e94d31ed9a4bc91ee3c',
+              type: 'commit',
+              tagger: {
+                name: context.repo.owner,
+                email: 'noreply@github.com',
+                date: new Date().toISOString()
+              },
               headers: {
                 'X-GitHub-Api-Version': '2022-11-28'
               }
             });
-            console.log(res.data);
+
+            try {
+              let res = await github.request('GET /repos/{owner}/{repo}/tags/{tag}',
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: '${{ steps.cargo_toml.outputs.tag }}',
+                headers: {
+                  'X-GitHub-Api-Version': '2022-11-28'
+                }
+              });
+              console.log(res.data);
+            } catch(/*HttpError*/ error) {
+                console.log(error);
+            }
+
       - name: create gh release
         uses: actions/github-script@v7
         with:
