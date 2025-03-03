@@ -50,16 +50,16 @@ jobs:
       #         ref: 'refs/tags/${{ steps.cargo_toml.outputs.package__version }}',
       #         sha: context.sha
       #       })
-      - name: create tag if not present
+      - name: create tag
         uses: actions/github-script@v7
         with:
           script: |
-            await github.request('POST /repos/{owner}/{repo}/git/tags', {
+            let res = await github.request('POST /repos/{owner}/{repo}/git/tags', {
               owner: context.repo.owner,
               repo: context.repo.owner,
               tag: '${{ steps.cargo_toml.outputs.tag }}',
               message: 'automatic creating tag ${{ steps.cargo_toml.outputs.tag }}',
-              object: 'c3d0be41ecbe669545ee3e94d31ed9a4bc91ee3c',
+              object: context.sha,
               type: 'commit',
               tagger: {
                 name: context.repo.owner,
@@ -70,21 +70,22 @@ jobs:
                 'X-GitHub-Api-Version': '2022-11-28'
               }
             });
+            console.log(res.data);
 
-            try {
-              let res = await github.request('GET /repos/{owner}/{repo}/tags/{tag}',
-              {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                tag: '${{ steps.cargo_toml.outputs.tag }}',
-                headers: {
-                  'X-GitHub-Api-Version': '2022-11-28'
-                }
-              });
-              console.log(res.data);
-            } catch(/*HttpError*/ error) {
-                console.log(error);
-            }
+      - name: get tag
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let res = await github.request('GET /repos/{owner}/{repo}/git/tags/{tag}',
+            {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag: '${{ steps.cargo_toml.outputs.tag }}',
+              headers: {
+                'X-GitHub-Api-Version': '2022-11-28'
+              }
+            });
+            console.log(res.data);
 
       - name: create gh release
         uses: actions/github-script@v7
