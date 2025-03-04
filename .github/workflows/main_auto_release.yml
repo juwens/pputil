@@ -22,6 +22,7 @@ jobs:
     - name: TarGz Release
       run: tar -czvf target/release/pputil.tar.gz -C target/release pputil
     - name: Upload Artifacts
+      id: artifact-upload
       uses: actions/upload-artifact@v4
       with:
         path: |
@@ -106,6 +107,7 @@ jobs:
       #       console.log(res.data);
 
       - name: create gh release draft
+        id: create_release
         uses: actions/github-script@v7
         with:
           script: |
@@ -129,6 +131,8 @@ jobs:
                 'X-GitHub-Api-Version': '2022-11-28'
               }
             });
+            core.exportVariable('release_id', createReleaseRes.data.id);
+            
             let d = createReleaseRes.data;
             console.log({
               url: d.url,
@@ -139,3 +143,24 @@ jobs:
               prerelease: d.prerelease,
               created_at: d.created_at,
             });
+      
+      - name: download temp build artifacts
+        uses: actions/download-artifact@v4
+
+      - name: 'ls -lh'
+        run: ls -lh
+
+      - name: add assets to release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.request('POST /repos/{owner}/{repo}/releases/{release_id}/assets{?name,label}', {
+              owner: context.repo.owner,
+              repo: context.repo.owner.repo,
+              release_id: '${{ steps.create_release.outputs.release_id }}',
+              data: '@pputil',
+              headers: {
+                'X-GitHub-Api-Version': '2022-11-28'
+              }
+            });
+      
