@@ -163,7 +163,8 @@ jobs:
               '{env.release_id }': '${{ env.release_id }}'
             });
 
-            const releaseId = core.getInput('release_id', { required: true });
+            //const releaseId = core.getInput('release_id', { required: true });
+            const releaseId = '${{ env.release_id }}';
 
             await github.request('POST /repos/{owner}/{repo}/releases/{release_id}/assets{?name,label}', {
               owner: context.repo.owner,
