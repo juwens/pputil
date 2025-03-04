@@ -124,7 +124,7 @@ jobs:
               target_commitish: 'main',
               name: `${raw_version}`,
               body: '',
-              draft: true,
+              draft: false,
               prerelease: true,
               generate_release_notes: false,
               headers: {
