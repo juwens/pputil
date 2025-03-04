@@ -1,0 +1,1 @@
+https://github.com/actions/github-script?tab=readme-ov-file#use-esm-import
