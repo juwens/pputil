@@ -144,11 +144,13 @@ jobs:
               created_at: d.created_at,
             });
       
+      - run: ls -lh
+
       - name: download temp build artifacts
         uses: actions/download-artifact@v4
 
-      - name: 'ls -lh'
-        run: ls -lh
+      - run: ls -lh
+      - run: ls -lh artifact
 
       - name: add assets to release
         uses: actions/github-script@v7
@@ -158,7 +160,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.owner.repo,
               release_id: '${{ steps.create_release.outputs.release_id }}',
-              data: '@pputil',
+              data: '@artifact/pputil',
               headers: {
                 'X-GitHub-Api-Version': '2022-11-28'
               }
