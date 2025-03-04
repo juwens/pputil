@@ -168,13 +168,14 @@ jobs:
             });
 
             const releaseId = '${{ env.release_id }}';
-
+            const fileBlob = await fs.promises.readFile('artifact/pputil');
+            
             github.rest.repos.uploadReleaseAsset({
               owner: context.repo.owner,
               repo: context.repo.repo,
               release_id: releaseId,
               name: 'pputil.arm64',
-              data: await fs.promises.readFile('artifact/pputil'),
+              data: fileBlob,
             });
 
             # produces 404:
