@@ -52,7 +52,7 @@ jobs:
             github.rest.git.createRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              ref: 'refs/tags/${{ steps.cargo_toml.outputs.package__version }}',
+              ref: 'refs/tags/${{ steps.cargo_toml.outputs.tag }}',
               sha: context.sha
             })
       # - name: create annotated tag with curl
@@ -143,6 +143,7 @@ jobs:
               draft: d.draft,
               prerelease: d.prerelease,
               created_at: d.created_at,
+              data: createReleaseRes.data,
             });
       
       - run: ls -lh
@@ -166,6 +167,7 @@ jobs:
             //const releaseId = core.getInput('release_id', { required: true });
             const releaseId = '${{ env.release_id }}';
 
+            // https://docs.github.com/en/rest/releases/assets?apiVersion=2022-11-28
             await github.request('POST /repos/{owner}/{repo}/releases/{release_id}/assets{?name,label}', {
               owner: context.repo.owner,
               repo: context.repo.repo,
