@@ -157,7 +157,10 @@ jobs:
       - name: add assets to release
         uses: actions/github-script@v7
         with:
+          debug: true
           script: |
+            const fs = require('fs');
+            
             console.log({
               'steps.create_release.outputs.release_id': '${{ steps.create_release.outputs.release_id }}',
               'core.getInput("release_id");': core.getInput('release_id', { required: false }),
@@ -167,12 +170,14 @@ jobs:
             //const releaseId = core.getInput('release_id', { required: true });
             const releaseId = '${{ env.release_id }}';
 
+            const fileBlob = await fs.readFile('artifact/pputil');
+
             github.rest.repos.uploadReleaseAsset({
               owner: context.repo.owner,
               repo: context.repo.repo,
               release_id: releaseId,
-              name: 'test.txt',
-              data: 'hello world!',
+              name: 'test.blob',
+              data: fileBlob,
             });
 
             // https://docs.github.com/en/rest/releases/assets?apiVersion=2022-11-28#upload-a-release-asset
