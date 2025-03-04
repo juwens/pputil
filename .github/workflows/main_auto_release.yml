@@ -131,6 +131,7 @@ jobs:
                 'X-GitHub-Api-Version': '2022-11-28'
               }
             });
+            core.info('created release');
             core.exportVariable('release_id', createReleaseRes.data.id);
             
             let d = createReleaseRes.data;
@@ -156,10 +157,18 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            console.log({
+              'steps.create_release.outputs.release_id': '${{ steps.create_release.outputs.release_id }}',
+              'core.getInput("release_id");': core.getInput('release_id', { required: false }),
+              '{env.release_id }': '${{ env.release_id }}'
+            });
+
+            const releaseId = core.getInput('release_id', { required: true });
+
             await github.request('POST /repos/{owner}/{repo}/releases/{release_id}/assets{?name,label}', {
               owner: context.repo.owner,
-              repo: context.repo.owner.repo,
-              release_id: '${{ steps.create_release.outputs.release_id }}',
+              repo: context.repo.repo,
+              release_id: releaseId,
               data: '@artifact/pputil',
               headers: {
                 'X-GitHub-Api-Version': '2022-11-28'
