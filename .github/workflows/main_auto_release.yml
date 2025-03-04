@@ -170,7 +170,7 @@ jobs:
             //const releaseId = core.getInput('release_id', { required: true });
             const releaseId = '${{ env.release_id }}';
 
-            const fileBlob = await fs.readFile('artifact/pputil');
+            const fileBlob = await fs.promises.readFile('artifact/pputil');
 
             github.rest.repos.uploadReleaseAsset({
               owner: context.repo.owner,
