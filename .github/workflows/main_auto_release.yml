@@ -44,16 +44,16 @@ jobs:
         run: |
           echo "package__version=$(yq .package.version Cargo.toml)" >> $GITHUB_OUTPUT
           echo "tag=v$(yq .package.version Cargo.toml)" >> $GITHUB_OUTPUT
-      # - name: create git tag
-      #   uses: actions/github-script@v7
-      #   with:
-      #     script: |
-      #       github.rest.git.createRef({
-      #         owner: context.repo.owner,
-      #         repo: context.repo.repo,
-      #         ref: 'refs/tags/${{ steps.cargo_toml.outputs.package__version }}',
-      #         sha: context.sha
-      #       })
+      - name: create git lightweight tag # not annotated
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'refs/tags/${{ steps.cargo_toml.outputs.package__version }}',
+              sha: context.sha
+            })
       - name: create tag with curl
         env:
           GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
