@@ -19,14 +19,14 @@ jobs:
     - uses: Swatinem/rust-cache@v2
     - name: Build
       run: cargo build --release # --verbose
-    - name: TarGz Release
-      run: tar -czvf target/release/pputil.tar.gz -C target/release pputil
+    #- name: TarGz Release
+    #  run: tar -czvf target/release/pputil.tar.gz -C target/release pputil
     - name: Upload Artifacts
       id: artifact-upload
       uses: actions/upload-artifact@v4
       with:
+        name: artifact.arm64
         path: |
-          target/release/pputil.tar.gz
           target/release/pputil
     - name: Run tests
       run: cargo test --release # --verbose
