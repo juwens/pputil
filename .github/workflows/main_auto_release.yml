@@ -22,7 +22,7 @@ jobs:
       run: |
         cargo build --release # --verbose
         ls -lh target/release/
-        sha256sum target/release/pputil
+        echo "sha256(pputil arm64): $(sha256sum target/release/pputil)"
         echo "sha256_arm64=$(sha256sum target/release/pputil)" >> $GITHUB_OUTPUT 
     #- name: TarGz Release
     #  run: tar -czvf target/release/pputil.tar.gz -C target/release pputil
