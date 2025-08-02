@@ -1,6 +1,6 @@
-use std::{path::Path, time::SystemTime};
-use comfy_table::Cell;
 use crate::YamlDocument;
+use comfy_table::Cell;
+use std::{env, path::{Path, PathBuf}, time::SystemTime};
 
 #[derive(Debug)]
 pub struct ProvisioningProfileFileData {
@@ -58,4 +58,26 @@ impl OptValueAsBoxStr for Option<&plist::Value> {
     fn as_box_str(&self) -> Option<Box<str>> {
         self.and_then(plist::Value::as_string).map(Box::from)
     }
+}
+
+pub fn encode_to_yaml_str(value: &YamlDocument) -> String {
+    serde_yml::to_string(&value).unwrap()
+}
+
+pub fn abbreviate_home(path: &Path) -> PathBuf {
+    if let Some(home) = env::home_dir() {
+        if let Ok(stripped) = path.strip_prefix(&home) {
+            return PathBuf::from("~").join(stripped);
+        }
+    }
+    path.to_path_buf()
+}
+
+pub fn abbreviate_home_box(path: Box<Path>) -> PathBuf {
+    if let Some(home) = env::home_dir() {
+        if let Ok(stripped) = path.strip_prefix(&home) {
+            return PathBuf::from("~").join(stripped);
+        }
+    }
+    path.to_path_buf()
 }

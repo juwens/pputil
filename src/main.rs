@@ -7,6 +7,7 @@
 use args::{ListExtendedArgs, XcProvisioningProfileDir, XcProvisioningProfileDirKind};
 use chrono::{DateTime, Local};
 use compact::print_compact_table;
+use tui::run_tui_mode;
 use der::{Decode, Tagged};
 use helpers::{OptValueAsBoxStr, ProvisioningProfileFileData, NOT_AVAILABLE};
 use std::collections::BTreeMap;
@@ -15,9 +16,12 @@ use std::path::Path;
 use std::time::SystemTime;
 use std::vec;
 
+use crate::helpers::encode_to_yaml_str;
+
 mod args;
 mod compact;
 mod helpers;
+mod tui;
 
 type YamlValue = serde_yml::value::Value;
 type YamlDocument = BTreeMap<String, Option<YamlValue>>;
@@ -27,7 +31,10 @@ struct XcProvisioningProfileFile {
     pub xc_kind: XcProvisioningProfileDirKind,
 }
 
-fn main() {
+#[allow(clippy::unnecessary_wraps)]
+fn main() -> Result<(), std::io::Error> {
+    color_eyre::install().unwrap();
+
     let args = args::get_processed_args();
 
     println!();
@@ -47,9 +54,16 @@ fn main() {
     match args.command {
         args::Commands::List(x) => print_compact_table(file_data_rows, &x),
         args::Commands::ListExtended(x) => print_extended_table(file_data_rows, &x),
+        args::Commands::Tui(x) => {
+            if let Err(e) = run_tui_mode(file_data_rows, &x) {
+                eprintln!("TUI error: {e}");
+            }
+        }
     };
 
     println!();
+
+    Ok(())
 }
 
 fn parse_file(
@@ -178,10 +192,6 @@ fn print_extended_table(
     rows: impl Iterator<Item = Result<ProvisioningProfileFileData, ProvisioningProfileFileData>>,
     _args: &ListExtendedArgs,
 ) {
-    fn encode_to_yaml_str(value: &YamlDocument) -> String {
-        serde_yml::to_string(&value).unwrap()
-    }
-
     let mut table = comfy_table::Table::new();
     table.set_header(vec![
         "Profile",

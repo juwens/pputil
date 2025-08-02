@@ -7,39 +7,20 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'provision_profile_viewer'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--bin=provision_profile_viewer",
-                    "--package=provision_profile_viewer"
-                ],
-                "filter": {
-                    "name": "provision_profile_viewer",
-                    "kind": "bin"
-                }
+            "name": "run pputil",
+            "cwd": "${workspaceFolder}",
+            "program": "${workspaceFolder}/target/debug/pputil",
+            "env": {
+                "RUST_BACKTRACE": "short",
+                "RUSTC_TOOLCHAIN": "/Users/jjaehrig/.rustup/toolchains/stable-aarch64-apple-darwin"
             },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in executable 'provision_profile_viewer'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--bin=provision_profile_viewer",
-                    "--package=provision_profile_viewer"
-                ],
-                "filter": {
-                    "name": "provision_profile_viewer",
-                    "kind": "bin"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
+            "args": [
+                "tui"
+            ],
+            "sourceMap": {},
+            "sourceLanguages": [
+                "rust"
+            ]
         }
     ]
 }

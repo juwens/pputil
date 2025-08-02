@@ -1,0 +1,17 @@
+version: "0.2"
+ignorePaths: []
+dictionaryDefinitions: []
+dictionaries: []
+words: null
+ignoreWords:
+  - crossterm
+  - ratatui
+  - expir
+  - dvc
+  - mgd
+  - prv
+  - COLORFGBG
+  - ITERM
+import: []
+enabledFileTypes:
+  toml: false

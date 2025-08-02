@@ -1,5 +1,8 @@
 {
     "cSpell.words": [
         "mobileprovision"
-    ]
+    ],
+    "cSpell.enabledFileTypes": {
+        "github-actions-workflow": false
+    }
 }

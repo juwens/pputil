@@ -71,6 +71,7 @@ impl std::fmt::Debug for Commands {
         match self {
             Commands::List(args) => f.debug_tuple("ListCompact").field(args).finish(),
             Commands::ListExtended(args) => f.debug_tuple("ListExtended").field(args).finish(),
+            Commands::Tui(args) => f.debug_tuple("Tui").field(args).finish(),
         }
     }
 }
@@ -113,6 +114,15 @@ pub struct ListCompactArgs {
 #[derive(Parser, Debug)]
 pub struct ListExtendedArgs {}
 
+#[derive(Parser, Debug)]
+pub struct ListTuiArgs {
+    #[arg(value_enum, short, long, value_enum, default_value_t=CompactSortBy::Name)]
+    pub sort_by: CompactSortBy,
+
+    #[arg(value_enum, short='o', long="order", default_value_t=SortOrder::Asc)]
+    pub sort_order: SortOrder,
+}
+
 #[derive(Subcommand)]
 #[command()]
 pub enum Commands {
@@ -122,6 +132,9 @@ pub enum Commands {
     /// print an extended table with several lines per profile. When you need more infos.
     #[command(name = "list-ext")]
     ListExtended(ListExtendedArgs),
+    /// interactive TUI mode with navigable table and detailed view
+    #[command(name = "tui")]
+    Tui(ListTuiArgs),
 }
 
 #[derive(Debug, ValueEnum, Clone)]

@@ -11,6 +11,7 @@ key features:
 ** dynamic arrangement of content depending on console-window and content width (https://github.com/Nukesor/comfy-table[provided by comfy-table])
 * highlighting of expired certificates
 * sorting can be customized
+* interactive TUI mode with navigable table and detailed profile view
 
 == Roadmap
 
@@ -37,6 +38,34 @@ scanning directories:
 ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌┤
 │ Foo Developement               ┆ ABC Development Wildcard ┆ A1B2C3D4E5.de.foo.dev.*       ┆ 2025-12-24 ┆ N   ┆ _   ┆ ABC GmbH  ┆ 60  ┆ 33941f79-483a-4705-a89c-5a778126f603 ┆ 16+ │
 ╰────────────────────────────────┴──────────────────────────┴───────────────────────────────┴────────────┴─────┴─────┴───────────┴─────┴──────────────────────────────────────┴─────╯
+```
+
+== Commands
+
+=== list (default)
+Display a compact table with one profile per line. Ideal for a quick overview of all profiles.
+
+```
+user@mymac % pputil list
+```
+
+=== tui
+Interactive TUI mode with navigable table and detailed profile view.
+
+* Use ↑/↓ arrow keys or j/k to navigate through profiles
+* Press Enter to view detailed information about the selected profile
+* Automatically adapts to your terminal's color scheme using environment detection
+* Press q or Esc to quit
+
+```
+user@mymac % pputil tui
+```
+
+=== list-ext
+Display an extended table with several lines per profile. When you need more detailed information.
+
+```
+user@mymac % pputil list-ext
 ```
 
 == Install
