@@ -9,7 +9,7 @@ use chrono::{DateTime, Local};
 use compact::print_compact_table;
 use tui::run_tui_mode;
 use der::{Decode, Tagged};
-use helpers::{OptValueAsBoxStr, ProvisioningProfileFileData, NOT_AVAILABLE};
+use helpers::{ProvisioningProfileFileData, NOT_AVAILABLE};
 use std::collections::BTreeMap;
 use std::fs::{self};
 use std::path::Path;
@@ -100,17 +100,14 @@ fn parse_file(
 
     let provisioned_devices: Vec<Rc<str>> = pl
         .get("ProvisionedDevices")
-        .and_then(|devices| {
-            let array = devices.as_array().unwrap();
-            Some(
-                array
-                    .iter()
-                    .map(|item| Rc::<str>::from(item.as_string().unwrap_or(NOT_AVAILABLE)))
-                    .collect::<Vec<Rc<str>>>()
-            )
+        .and_then(|devices| devices.as_array())
+        .map(|array| {
+            array
+                .iter()
+                .map(|item| Rc::<str>::from(item.as_string().unwrap_or(NOT_AVAILABLE)))
+                .collect::<Vec<Rc<str>>>()
         })
         .unwrap_or_else(|| vec![Rc::<str>::from("failed to parse")]);
-        // .map(Vec::len);
 
     let row = ProvisioningProfileFileData {
         app_id_name: pl.get("AppIDName").and_then(plist::Value::as_string).map(Rc::<str>::from).or_else(|| Some(Rc::<str>::from(NOT_AVAILABLE))),

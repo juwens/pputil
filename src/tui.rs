@@ -1,38 +1,9 @@
-fn render_tab_properties(
-    area: Rect,
-    buf: &mut Buffer,
-    profile: &ProvisioningProfileFileData,
-) {
-    Text::raw(encode_to_yaml_str(&profile.properties)).render(area, buf);
-}
-
-fn render_tab_provisioning_devices(area: Rect, buf: &mut Buffer, profile: &ProvisioningProfileFileData) {
-    if let Some(items) = profile.provisioned_devices.clone() {
-        // Example: create a table with device names (customize columns as needed)
-        let rows: Vec<Row> = items.iter().enumerate()
-            .map(|(i, x)| Row::new(vec![i.to_string(), x.to_string()]))
-            .collect();
-        let widths = vec![Constraint::Length(2), Constraint::Fill(1)];
-        let tbl = Table::new(rows, widths)
-            .header(Row::new(vec!["nr", "uuid"]))
-            .block(Block::default().borders(Borders::ALL).title("Provisioned Devices"));
-        ratatui::widgets::Widget::render(&tbl, area, buf);
-    } else {
-        Paragraph::new(vec![Line::from("no profiles found")]).render(area, buf);
-    }
-}
-
-fn render_tab_developer_certificates(area: Rect, buf: &mut Buffer) {
-    Paragraph::new(vec![Line::from("Not implemented")]).render(area, buf);
-}
 use crate::args::{CompactSortBy, ListTuiArgs, SortOrder};
 use crate::helpers::{
     encode_to_yaml_str, ProvisioningProfileFileData, UnwrapOrNa, NOT_AVAILABLE,
 };
 use chrono::{DateTime, Local};
-use comfy_table::Width;
 use crossterm::event::{self, Event, KeyCode};
-use der::Length;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Layout, Rect};
 use ratatui::style::{Style, Stylize};
@@ -43,7 +14,6 @@ use ratatui::{
     layout::Constraint,
     widgets::{Block, Borders, Row, Table},
 };
-use std::collections::btree_set::Range;
 use std::{io, vec};
 use std::time::SystemTime;
 
@@ -219,12 +189,7 @@ impl Widget for &mut TuiApp {
         let [table_area, tabs_area, detail_area] = vertical_stack.areas(area);
 
         let mut table_state = TableState::default().with_selected(self.selected_index);
-        // frame.render_stateful_widget(
-        //     self.create_table().block(surrounding_block),
-        //     table_area,
-        //     &mut table_state,
-        // );
-
+        
         StatefulWidget::render(self.create_table()
             .block(surrounding_block), table_area, buf, &mut table_state);
 
@@ -283,35 +248,6 @@ impl<'a> Widget for DetailTab<'a> {
     }
 }
 
-impl DetailTab<'_> {
-fn render_tab_properties(
-    area: Rect,
-    buf: &mut Buffer,
-    profile: &ProvisioningProfileFileData,
-) {
-    Text::raw(encode_to_yaml_str(&profile.properties)).render(area, buf);
-}
-
-fn render_tab_provisioning_devices(area: Rect, buf: &mut Buffer, profile: &ProvisioningProfileFileData) {
-    let rows: Option<Vec<Line<'static>>> = match profile.provisioned_devices.clone() {
-        Some(items) => {
-            let res: Vec<Line<'static>> = items.into_iter().map(|x| Line::from(x.to_string())).collect();
-            Some(res)
-        },
-        None => None,
-    };
-
-    match rows {
-        Some(vec) => Paragraph::new(vec),
-        None => Paragraph::new(vec![Line::from("no profiles found")]),
-    }.render(area, buf);
-}
-
-fn render_tab_developer_certificates(area: Rect, buf: &mut Buffer) {
-    Paragraph::new(vec![Line::from("Not implemented")]).render(area, buf);
-}
-}
-
 fn format_expiration_date(date: Option<SystemTime>) -> String {
     date.map(DateTime::<Local>::from).map_or_else(
         || NOT_AVAILABLE.to_string(),
@@ -324,4 +260,32 @@ fn format_expiration_date(date: Option<SystemTime>) -> String {
             }
         },
     )
+}
+
+fn render_tab_properties(
+    area: Rect,
+    buf: &mut Buffer,
+    profile: &ProvisioningProfileFileData,
+) {
+    Text::raw(encode_to_yaml_str(&profile.properties)).render(area, buf);
+}
+
+fn render_tab_provisioning_devices(area: Rect, buf: &mut Buffer, profile: &ProvisioningProfileFileData) {
+    if let Some(items) = profile.provisioned_devices.clone() {
+        // Example: create a table with device names (customize columns as needed)
+        let rows: Vec<Row> = items.iter().enumerate()
+            .map(|(i, x)| Row::new(vec![i.to_string(), x.to_string()]))
+            .collect();
+        let widths = vec![Constraint::Length(2), Constraint::Fill(1)];
+        let tbl = Table::new(rows, widths)
+            .header(Row::new(vec!["nr", "uuid"]))
+            .block(Block::default().borders(Borders::ALL).title("Provisioned Devices"));
+        ratatui::widgets::Widget::render(&tbl, area, buf);
+    } else {
+        Paragraph::new(vec![Line::from("no profiles found")]).render(area, buf);
+    }
+}
+
+fn render_tab_developer_certificates(area: Rect, buf: &mut Buffer) {
+    Paragraph::new(vec![Line::from("Not implemented")]).render(area, buf);
 }
