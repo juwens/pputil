@@ -15,7 +15,8 @@ pub struct ProvisioningProfileFileData {
     pub exp_date: Option<SystemTime>,
     /// entitlements.application-identifier
     pub ent_app_id: Option<Box<str>>,
-    pub provisioned_devices: Option<usize>,
+    pub provisioned_devices: Option<Vec<Box<str>>>,
+    pub provisioned_devices_count: Option<usize>,
     pub file_path: Box<Path>,
     pub local_provision: Option<bool>,
     pub uuid: Option<Box<str>>,

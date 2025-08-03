@@ -100,7 +100,7 @@ pub fn print_compact_table(
         add(profile.team_name.unwrap_or_na().into_cell());
 
         add(profile
-            .provisioned_devices
+            .provisioned_devices_count
             .map_or(String::from(NOT_AVAILABLE), |x| x.to_string())
             .into_cell());
 

@@ -1,6 +1,32 @@
+fn render_tab_properties(
+    area: Rect,
+    buf: &mut Buffer,
+    profile: &ProvisioningProfileFileData,
+) {
+    Text::raw(encode_to_yaml_str(&profile.properties)).render(area, buf);
+}
+
+fn render_tab_provisioning_devices(area: Rect, buf: &mut Buffer, profile: &ProvisioningProfileFileData) {
+    let rows: Option<Vec<Line<'static>>> = match profile.provisioned_devices.clone() {
+        Some(items) => {
+            let res: Vec<Line<'static>> = items.into_iter().map(|x| Line::from(x.into_string())).collect();
+            Some(res)
+        },
+        None => None,
+    };
+
+    match rows {
+        Some(vec) => Paragraph::new(vec),
+        None => Paragraph::new(vec![Line::from("no profiles found")]),
+    }.render(area, buf);
+}
+
+fn render_tab_developer_certificates(area: Rect, buf: &mut Buffer) {
+    Paragraph::new(vec![Line::from("Not implemented")]).render(area, buf);
+}
 use crate::args::{CompactSortBy, ListTuiArgs, SortOrder};
 use crate::helpers::{
-    abbreviate_home_box, encode_to_yaml_str, ProvisioningProfileFileData, UnwrapOrNa, NOT_AVAILABLE,
+    encode_to_yaml_str, ProvisioningProfileFileData, UnwrapOrNa, NOT_AVAILABLE,
 };
 use chrono::{DateTime, Local};
 use crossterm::event::{self, Event, KeyCode};
@@ -8,7 +34,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::{Line, Text};
-use ratatui::widgets::{Padding, Paragraph, StatefulWidget, TableState, Tabs, Widget};
+use ratatui::widgets::{Paragraph, StatefulWidget, TableState, Tabs, Widget};
 use ratatui::DefaultTerminal;
 use ratatui::{
     layout::Constraint,
@@ -27,8 +53,8 @@ pub struct TuiApp {
 #[derive(Debug)]
 enum DetailTab<'a> {
     Properties(&'a ProvisioningProfileFileData),
-    ProvisionedDevices,
-    DeveloperCertificates,
+    ProvisionedDevices(&'a ProvisioningProfileFileData),
+    DeveloperCertificates(&'a ProvisioningProfileFileData),
     None,
 }
 
@@ -38,7 +64,7 @@ impl TuiApp {
             Item = Result<ProvisioningProfileFileData, ProvisioningProfileFileData>,
         >,
         args: &ListTuiArgs,
-    ) -> Self {
+    ) -> TuiApp {
         let mut profiles: Vec<ProvisioningProfileFileData> = profiles_unsorted
             .map(|row| match row {
                 Err(x) | Ok(x) => x,
@@ -96,6 +122,15 @@ impl TuiApp {
                             self.selected_index += 1;
                         }
                     }
+                    KeyCode::Char('1') => {
+                        self.selected_tab_index = 0;
+                    }
+                    KeyCode::Char('2') => {
+                        self.selected_tab_index = 1;
+                    }
+                    KeyCode::Char('3') => {
+                        self.selected_tab_index = 2;
+                    }
                     _ => {}
                 }
             }
@@ -130,7 +165,7 @@ impl TuiApp {
                     profile.local_provision.to_tui_string(),
                     profile.team_name.unwrap_or_na(),
                     profile
-                        .provisioned_devices
+                        .provisioned_devices_count
                         .map_or(NOT_AVAILABLE.to_string(), |x| x.to_string()),
                     // profile.uuid.unwrap_or_na(),
                     // profile.xc_kind.unwrap_or_na(),
@@ -191,7 +226,12 @@ impl Widget for &mut TuiApp {
 
         let selected_profile: &ProvisioningProfileFileData =
             self.profiles.get(self.selected_index).unwrap();
-        let selected_tab = DetailTab::Properties(selected_profile);
+        let selected_tab = match self.selected_tab_index {
+            0 => DetailTab::Properties(selected_profile),
+            1 => DetailTab::ProvisionedDevices(selected_profile),
+            2 => DetailTab::DeveloperCertificates(selected_profile),
+            _ => DetailTab::None,
+        };
 
         Tabs::new(vec!["properties", "prov devices", "certificate"])
             .select(self.selected_tab_index)
@@ -201,7 +241,7 @@ impl Widget for &mut TuiApp {
     }
 }
 
-pub fn run_tui_mode(
+pub fn run_tui_mode<'a>(
     profiles_unsorted: impl Iterator<
         Item = Result<ProvisioningProfileFileData, ProvisioningProfileFileData>,
     >,
@@ -227,40 +267,45 @@ impl ToTuiString for Option<bool> {
     }
 }
 
-impl Widget for DetailTab<'_> {
+impl<'a> Widget for DetailTab<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         // in a real app these might be separate widgets
         match self {
-            Self::Properties(data) => self.render_tab_properties(area, buf, data),
-            Self::ProvisionedDevices => self.render_tab_provisioning_devices(area, buf),
-            Self::DeveloperCertificates => self.render_tab_developer_certificates(area, buf),
+            Self::Properties(data) => render_tab_properties(area, buf, data),
+            Self::ProvisionedDevices(data) => render_tab_provisioning_devices(area, buf, data),
+            Self::DeveloperCertificates(_data) => render_tab_developer_certificates(area, buf),
             Self::None => (),
         }
     }
 }
 
 impl DetailTab<'_> {
-    fn render_tab_properties(
-        &self,
-        area: Rect,
-        buf: &mut Buffer,
-        profile: &ProvisioningProfileFileData,
-    ) {
-        let relative_file_path = abbreviate_home_box(profile.file_path.clone());
+fn render_tab_properties(
+    area: Rect,
+    buf: &mut Buffer,
+    profile: &ProvisioningProfileFileData,
+) {
+    Text::raw(encode_to_yaml_str(&profile.properties)).render(area, buf);
+}
 
-        // let bottom_area_title = "properties";
-        let bottom_area_title = format!("file: {}", relative_file_path.to_string_lossy());
+fn render_tab_provisioning_devices(area: Rect, buf: &mut Buffer, profile: &ProvisioningProfileFileData) {
+    let rows: Option<Vec<Line<'static>>> = match profile.provisioned_devices.clone() {
+        Some(items) => {
+            let res: Vec<Line<'static>> = items.into_iter().map(|x| Line::from(x.into_string())).collect();
+            Some(res)
+        },
+        None => None,
+    };
 
-        Text::raw(encode_to_yaml_str(&profile.properties)).render(area, buf);
-    }
+    match rows {
+        Some(vec) => Paragraph::new(vec),
+        None => Paragraph::new(vec![Line::from("no profiles found")]),
+    }.render(area, buf);
+}
 
-    fn render_tab_provisioning_devices(&self, area: Rect, buf: &mut Buffer) {
-        todo!()
-    }
-
-    fn render_tab_developer_certificates(&self, area: Rect, buf: &mut Buffer) {
-        todo!()
-    }
+fn render_tab_developer_certificates(area: Rect, buf: &mut Buffer) {
+    Paragraph::new(vec![Line::from("Not implemented")]).render(area, buf);
+}
 }
 
 fn format_expiration_date(date: Option<SystemTime>) -> String {

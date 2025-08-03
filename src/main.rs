@@ -84,6 +84,7 @@ fn parse_file(
             exp_date: None,
             ent_app_id: None,
             provisioned_devices: None,
+            provisioned_devices_count: None,
             file_path: file.path.clone(),
             local_provision: None,
             uuid: None,
@@ -100,10 +101,19 @@ fn parse_file(
         .and_then(|x| x.as_dictionary())
         .unwrap_or(&fallback_entitlements);
 
-    let provisioned_devices = pl
+    let provisioned_devices: Vec<Box<str>> = pl
         .get("ProvisionedDevices")
-        .and_then(|x| x.as_array())
-        .map(Vec::len);
+        .and_then(|devices| {
+            let array = devices.as_array().unwrap();
+            Some(
+                array
+                    .iter()
+                    .map(|item| item.as_string().unwrap_or(NOT_AVAILABLE).to_string().into_boxed_str())
+                    .collect::<Vec<Box<str>>>()
+            )
+        })
+        .unwrap_or_else(|| vec!["failed to parse".to_string().into_boxed_str()]);
+        // .map(Vec::len);
 
     let row = ProvisioningProfileFileData {
         app_id_name: pl.get("AppIDName").as_box_str(),
@@ -146,7 +156,8 @@ fn parse_file(
             .map(SystemTime::from),
 
         team_name: pl.get("TeamName").as_box_str(),
-        provisioned_devices,
+        provisioned_devices: Some(provisioned_devices),
+        provisioned_devices_count: Some(usize::MAX),
         file_path: file.path.clone(),
         uuid: pl.get("UUID").as_box_str(),
         platforms: pl.get("Platform").and_then(|x| x.as_array()).map(|x| {
@@ -188,7 +199,7 @@ fn get_files_from_dir(xc_dir: &XcProvisioningProfileDir) -> Vec<XcProvisioningPr
     }
 }
 
-fn print_extended_table(
+fn print_extended_table<'a>(
     rows: impl Iterator<Item = Result<ProvisioningProfileFileData, ProvisioningProfileFileData>>,
     _args: &ListExtendedArgs,
 ) {
