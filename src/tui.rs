@@ -202,7 +202,7 @@ impl Widget for &mut TuiApp {
             _ => DetailTab::None,
         };
 
-        Tabs::new(vec!["properties", "prov devices", "certificate"])
+        Tabs::new(vec!["properties (1)", "prov devices (2)", "certificate (3)"])
             .select(self.selected_tab_index)
             .render(tabs_area, buf);
 
