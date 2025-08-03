@@ -13,6 +13,7 @@ use helpers::{OptValueAsBoxStr, ProvisioningProfileFileData, NOT_AVAILABLE};
 use std::collections::BTreeMap;
 use std::fs::{self};
 use std::path::Path;
+use std::rc::Rc;
 use std::time::SystemTime;
 use std::vec;
 
@@ -27,7 +28,7 @@ type YamlValue = serde_yml::value::Value;
 type YamlDocument = BTreeMap<String, Option<YamlValue>>;
 
 struct XcProvisioningProfileFile {
-    pub path: Box<Path>,
+    pub path: Rc<Path>,
     pub xc_kind: XcProvisioningProfileDirKind,
 }
 
@@ -71,11 +72,7 @@ fn parse_file(
 ) -> Result<ProvisioningProfileFileData, ProvisioningProfileFileData> {
     let Ok(pl) = parse_mobileprovision_into_plist(&file.path) else {
         return Err(ProvisioningProfileFileData {
-            name: Some(
-                format!("failed to parse file {}", file.path.to_string_lossy())
-                    .to_string()
-                    .into_boxed_str(),
-            ),
+            name: Some(Rc::<str>::from(format!("failed to parse file {}", file.path.to_string_lossy()))),
             app_id_name: None,
             team_name: None,
             xc_managed: None,
@@ -85,7 +82,7 @@ fn parse_file(
             ent_app_id: None,
             provisioned_devices: None,
             provisioned_devices_count: None,
-            file_path: file.path.clone(),
+            file_path: Rc::clone(&file.path),
             local_provision: None,
             uuid: None,
             properties: YamlDocument::new(),
@@ -101,22 +98,22 @@ fn parse_file(
         .and_then(|x| x.as_dictionary())
         .unwrap_or(&fallback_entitlements);
 
-    let provisioned_devices: Vec<Box<str>> = pl
+    let provisioned_devices: Vec<Rc<str>> = pl
         .get("ProvisionedDevices")
         .and_then(|devices| {
             let array = devices.as_array().unwrap();
             Some(
                 array
                     .iter()
-                    .map(|item| item.as_string().unwrap_or(NOT_AVAILABLE).to_string().into_boxed_str())
-                    .collect::<Vec<Box<str>>>()
+                    .map(|item| Rc::<str>::from(item.as_string().unwrap_or(NOT_AVAILABLE)))
+                    .collect::<Vec<Rc<str>>>()
             )
         })
-        .unwrap_or_else(|| vec!["failed to parse".to_string().into_boxed_str()]);
+        .unwrap_or_else(|| vec![Rc::<str>::from("failed to parse")]);
         // .map(Vec::len);
 
     let row = ProvisioningProfileFileData {
-        app_id_name: pl.get("AppIDName").as_box_str(),
+        app_id_name: pl.get("AppIDName").and_then(plist::Value::as_string).map(Rc::<str>::from).or_else(|| Some(Rc::<str>::from(NOT_AVAILABLE))),
         xc_managed: pl.get("IsXcodeManaged").and_then(plist::Value::as_boolean),
         xc_kind: match file.xc_kind {
             XcProvisioningProfileDirKind::Xc15 => Some("15-".into()),
@@ -125,8 +122,8 @@ fn parse_file(
         },
         name: pl
             .get("Name")
-            .and_then(|x| x.as_string())
-            .map(|x| x.to_string().into_boxed_str()),
+            .and_then(plist::Value::as_string)
+            .map(Rc::<str>::from),
         local_provision: pl.get("LocalProvision").and_then(|x| x.as_boolean()),
         app_id_prefixes: {
             let prefixes = pl
@@ -134,16 +131,12 @@ fn parse_file(
                 .and_then(|x| x.as_array());
             prefixes.map(|x| {
                 x.iter()
-                    .map(|x| {
-                        x.as_string()
-                            .map_or(NOT_AVAILABLE.to_string(), |x| x.to_owned())
-                            .into_boxed_str()
-                    })
+                    .map(|x| Rc::<str>::from(x.as_string().unwrap_or(NOT_AVAILABLE)))
                     .collect()
             })
         },
-        ent_app_id: ent.get("application-identifier").as_box_str(),
-        ent_team_id: ent.get("com.apple.developer.team-identifier").as_box_str(),
+        ent_app_id: ent.get("application-identifier").and_then(plist::Value::as_string).map(Rc::<str>::from).or_else(|| Some(Rc::<str>::from(NOT_AVAILABLE))),
+        ent_team_id: ent.get("com.apple.developer.team-identifier").and_then(plist::Value::as_string).map(Rc::<str>::from).or_else(|| Some(Rc::<str>::from(NOT_AVAILABLE))),
 
         exp_date: pl
             .get("ExpirationDate")
@@ -155,16 +148,14 @@ fn parse_file(
             .and_then(plist::Value::as_date)
             .map(SystemTime::from),
 
-        team_name: pl.get("TeamName").as_box_str(),
+        team_name: pl.get("TeamName").and_then(plist::Value::as_string).map(Rc::<str>::from),
         provisioned_devices: Some(provisioned_devices),
         provisioned_devices_count: Some(usize::MAX),
-        file_path: file.path.clone(),
-        uuid: pl.get("UUID").as_box_str(),
+        file_path: Rc::clone(&file.path),
+        uuid: pl.get("UUID").and_then(plist::Value::as_string).map(Rc::<str>::from).or_else(|| Some(Rc::<str>::from(NOT_AVAILABLE))),
         platforms: pl.get("Platform").and_then(|x| x.as_array()).map(|x| {
             x.iter()
-                .map(|x| x.as_string().unwrap_or(NOT_AVAILABLE))
-                .map(String::from)
-                .map(String::into_boxed_str)
+                .map(|x| Rc::<str>::from(x.as_string().unwrap_or(NOT_AVAILABLE)))
                 .collect::<Vec<_>>()
         }),
         properties: to_yaml_document(&pl),
@@ -188,7 +179,7 @@ fn get_files_from_dir(xc_dir: &XcProvisioningProfileDir) -> Vec<XcProvisioningPr
                     .map_or(false, |ext| ext == "mobileprovision")
                 {
                     Some(XcProvisioningProfileFile {
-                        path: path.into_boxed_path(),
+                        path: Rc::from(path),
                         xc_kind: xc_dir.kind,
                     })
                 } else {
@@ -223,7 +214,7 @@ fn print_extended_table<'a>(
         table.add_row(vec![
             format!(
                 "Name: {}\n\nFile: {}",
-                row.name.unwrap_or(NOT_AVAILABLE.into()),
+                row.name.as_deref().unwrap_or(NOT_AVAILABLE),
                 row.file_path.file_name().unwrap().to_string_lossy(),
             )
             .as_str(),
@@ -235,8 +226,7 @@ fn print_extended_table<'a>(
                 .map_or(NOT_AVAILABLE, |x| if x { "Y" } else { "N" }),
             &row.app_id_prefixes
                 .map(|x| x.join(", "))
-                .unwrap()
-                .into_boxed_str(),
+                .unwrap_or_default(),
             encode_to_yaml_str(&row.properties).as_str(),
         ]);
     }

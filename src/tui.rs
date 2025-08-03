@@ -9,7 +9,7 @@ fn render_tab_properties(
 fn render_tab_provisioning_devices(area: Rect, buf: &mut Buffer, profile: &ProvisioningProfileFileData) {
     let rows: Option<Vec<Line<'static>>> = match profile.provisioned_devices.clone() {
         Some(items) => {
-            let res: Vec<Line<'static>> = items.into_iter().map(|x| Line::from(x.into_string())).collect();
+            let res: Vec<Line<'static>> = items.into_iter().map(|x| Line::from(x.to_string())).collect();
             Some(res)
         },
         None => None,
@@ -291,7 +291,7 @@ fn render_tab_properties(
 fn render_tab_provisioning_devices(area: Rect, buf: &mut Buffer, profile: &ProvisioningProfileFileData) {
     let rows: Option<Vec<Line<'static>>> = match profile.provisioned_devices.clone() {
         Some(items) => {
-            let res: Vec<Line<'static>> = items.into_iter().map(|x| Line::from(x.into_string())).collect();
+            let res: Vec<Line<'static>> = items.into_iter().map(|x| Line::from(x.to_string())).collect();
             Some(res)
         },
         None => None,
