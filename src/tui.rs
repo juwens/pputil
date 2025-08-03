@@ -7,18 +7,19 @@ fn render_tab_properties(
 }
 
 fn render_tab_provisioning_devices(area: Rect, buf: &mut Buffer, profile: &ProvisioningProfileFileData) {
-    let rows: Option<Vec<Line<'static>>> = match profile.provisioned_devices.clone() {
-        Some(items) => {
-            let res: Vec<Line<'static>> = items.into_iter().map(|x| Line::from(x.to_string())).collect();
-            Some(res)
-        },
-        None => None,
-    };
-
-    match rows {
-        Some(vec) => Paragraph::new(vec),
-        None => Paragraph::new(vec![Line::from("no profiles found")]),
-    }.render(area, buf);
+    if let Some(items) = profile.provisioned_devices.clone() {
+        // Example: create a table with device names (customize columns as needed)
+        let rows: Vec<Row> = items.iter().enumerate()
+            .map(|(i, x)| Row::new(vec![i.to_string(), x.to_string()]))
+            .collect();
+        let widths = vec![Constraint::Length(2), Constraint::Fill(1)];
+        let tbl = Table::new(rows, widths)
+            .header(Row::new(vec!["nr", "uuid"]))
+            .block(Block::default().borders(Borders::ALL).title("Provisioned Devices"));
+        ratatui::widgets::Widget::render(&tbl, area, buf);
+    } else {
+        Paragraph::new(vec![Line::from("no profiles found")]).render(area, buf);
+    }
 }
 
 fn render_tab_developer_certificates(area: Rect, buf: &mut Buffer) {
@@ -29,7 +30,9 @@ use crate::helpers::{
     encode_to_yaml_str, ProvisioningProfileFileData, UnwrapOrNa, NOT_AVAILABLE,
 };
 use chrono::{DateTime, Local};
+use comfy_table::Width;
 use crossterm::event::{self, Event, KeyCode};
+use der::Length;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Layout, Rect};
 use ratatui::style::{Style, Stylize};
@@ -40,7 +43,8 @@ use ratatui::{
     layout::Constraint,
     widgets::{Block, Borders, Row, Table},
 };
-use std::io;
+use std::collections::btree_set::Range;
+use std::{io, vec};
 use std::time::SystemTime;
 
 #[derive(Debug)]
