@@ -1,4 +1,4 @@
-use crate::YamlDocument;
+use crate::{yml_types::YamlDocument, CertDetails};
 use comfy_table::Cell;
 use std::{env, path::{Path, PathBuf}, rc::Rc, time::SystemTime};
 
@@ -15,7 +15,7 @@ pub struct ProvisioningProfileFileData {
     pub exp_date: Option<SystemTime>,
     /// entitlements.application-identifier
     pub ent_app_id: Option<Rc<str>>,
-    pub provisioned_devices: Option<Vec<Rc<str>>>,
+    pub provisioned_devices: Vec<Rc<str>>,
     pub provisioned_devices_count: Option<usize>,
     pub file_path: Rc<Path>,
     pub local_provision: Option<bool>,
@@ -27,6 +27,8 @@ pub struct ProvisioningProfileFileData {
     pub ent_team_id: Option<Rc<str>>,
     #[allow(dead_code)]
     pub platforms: Option<Vec<Rc<str>>>,
+    pub developer_certificates_raw: Vec<Vec<u8>>,
+    pub developer_certificates: Vec<CertDetails>,
 }
 
 pub const NOT_AVAILABLE: &str = "_";

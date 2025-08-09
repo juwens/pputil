@@ -4,12 +4,11 @@ use std::vec;
 
 use crate::args;
 use crate::args::{CompactSortBy, ListCompactArgs};
-use crate::helpers::{IntoCell, ProvisioningProfileFileData, UnwrapOrNa, NOT_AVAILABLE};
+use crate::helpers::{IntoCell, UnwrapOrNa, NOT_AVAILABLE};
+use crate::types::ProfilesCollection;
 
 pub fn print_compact_table(
-    profiles_unsorted: impl Iterator<
-        Item = Result<ProvisioningProfileFileData, ProvisioningProfileFileData>,
-    >,
+    profiles_unsorted: ProfilesCollection,
     args: &ListCompactArgs,
 ) {
     let mut table = comfy_table::Table::new();
@@ -33,6 +32,7 @@ pub fn print_compact_table(
 
     let mut profiles_sorted = profiles_unsorted
         // Result.Err is a profile which failed to parse for some reason and contains dummy profile-data
+        .iter()
         .map(|row| match row {
             Err(x) | Ok(x) => x,
         })

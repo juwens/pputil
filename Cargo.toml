@@ -22,3 +22,8 @@ termsize = "0.1.9"
 color-eyre = "0.6.3"
 ratatui = "0.29.0"
 crossterm = "0.28.1"
+derive_setters = "0.1.8"
+strum = { version = "0.27.2", features = ["derive", "strum_macros"] }
+queue = "0.3.2-final"
+openssl = "0.10.73"
+itertools = "0.14.0"

@@ -1,35 +1,73 @@
-#![warn(clippy::pedantic)]
+// #![warn(clippy::pedantic)]
 #![allow(
     clippy::module_name_repetitions,
-    clippy::redundant_closure_for_method_calls
+    clippy::redundant_closure_for_method_calls,
+    clippy::map_unwrap_or,
+    clippy::too_many_lines
 )]
 
 use args::{ListExtendedArgs, XcProvisioningProfileDir, XcProvisioningProfileDirKind};
 use chrono::{DateTime, Local};
 use compact::print_compact_table;
-use tui::run_tui_mode;
 use der::{Decode, Tagged};
 use helpers::{ProvisioningProfileFileData, NOT_AVAILABLE};
-use std::collections::BTreeMap;
+use openssl::x509::X509;
 use std::fs::{self};
 use std::path::Path;
 use std::rc::Rc;
 use std::time::SystemTime;
 use std::vec;
 
+use self::tui::tui_main::run_tui_mode;
 use crate::helpers::encode_to_yaml_str;
+use crate::types::ProfilesCollection;
+use crate::yml_types::{YamlDocument, YamlValue};
 
 mod args;
 mod compact;
 mod helpers;
 mod tui;
-
-type YamlValue = serde_yml::value::Value;
-type YamlDocument = BTreeMap<String, Option<YamlValue>>;
+mod yml_types;
+mod types;
 
 struct XcProvisioningProfileFile {
     pub path: Rc<Path>,
     pub xc_kind: XcProvisioningProfileDirKind,
+}
+
+#[derive(Debug)]
+struct CertDetails {
+    subject: Rc<str>,
+    issuer: Rc<str>,
+    serial: Rc<str>,
+    not_before: Rc<str>,
+    not_after: Rc<str>,
+}
+
+impl CertDetails {
+    fn error() -> CertDetails {
+        let na = Rc::<str>::from("n/a");
+        CertDetails {
+            subject: na.clone(),
+            issuer: na.clone(),
+            serial: na.clone(),
+            not_before: na.clone(),
+            not_after: na.clone(),
+        }
+    }
+
+    fn from_cert(cert: &X509) -> CertDetails {
+        CertDetails {
+            subject: Rc::<str>::from(name_to_string(cert.subject_name())),
+            issuer: Rc::<str>::from(name_to_string(cert.issuer_name())),
+            serial: Rc::<str>::from(format!(
+                "{}",
+                cert.serial_number().to_bn().unwrap().to_dec_str().unwrap()
+            )),
+            not_before: Rc::from(format!("{}", cert.not_before())),
+            not_after: Rc::from(format!("{}", cert.not_after())),
+        }
+    }
 }
 
 #[allow(clippy::unnecessary_wraps)]
@@ -50,7 +88,7 @@ fn main() -> Result<(), std::io::Error> {
     println!();
 
     let files = get_files_from_dirs(&args.actual_dirs());
-    let file_data_rows = files.iter().map(parse_file);
+    let file_data_rows = files.iter().map(parse_file).collect::<Vec<_>>();
 
     match args.command {
         args::Commands::List(x) => print_compact_table(file_data_rows, &x),
@@ -60,7 +98,7 @@ fn main() -> Result<(), std::io::Error> {
                 eprintln!("TUI error: {e}");
             }
         }
-    };
+    }
 
     println!();
 
@@ -69,10 +107,13 @@ fn main() -> Result<(), std::io::Error> {
 
 fn parse_file(
     file: &XcProvisioningProfileFile,
-) -> Result<ProvisioningProfileFileData, ProvisioningProfileFileData> {
+) -> Result<Rc<ProvisioningProfileFileData>, Rc<ProvisioningProfileFileData>> {
     let Ok(pl) = parse_mobileprovision_into_plist(&file.path) else {
-        return Err(ProvisioningProfileFileData {
-            name: Some(Rc::<str>::from(format!("failed to parse file {}", file.path.to_string_lossy()))),
+        return Err(Rc::new(ProvisioningProfileFileData {
+            name: Some(Rc::<str>::from(format!(
+                "failed to parse file {}",
+                file.path.to_string_lossy()
+            ))),
             app_id_name: None,
             team_name: None,
             xc_managed: None,
@@ -80,7 +121,7 @@ fn parse_file(
             app_id_prefixes: None,
             exp_date: None,
             ent_app_id: None,
-            provisioned_devices: None,
+            provisioned_devices: vec![],
             provisioned_devices_count: None,
             file_path: Rc::clone(&file.path),
             local_provision: None,
@@ -89,7 +130,9 @@ fn parse_file(
             creation_date: None,
             ent_team_id: None,
             platforms: None,
-        });
+            developer_certificates_raw: Vec::new(),
+            developer_certificates: Vec::new(),
+        }));
     };
 
     let fallback_entitlements = plist::Dictionary::default();
@@ -110,7 +153,11 @@ fn parse_file(
         .unwrap_or_else(|| vec![Rc::<str>::from("failed to parse")]);
 
     let row = ProvisioningProfileFileData {
-        app_id_name: pl.get("AppIDName").and_then(plist::Value::as_string).map(Rc::<str>::from).or_else(|| Some(Rc::<str>::from(NOT_AVAILABLE))),
+        app_id_name: pl
+            .get("AppIDName")
+            .and_then(plist::Value::as_string)
+            .map(Rc::<str>::from)
+            .or_else(|| Some(Rc::<str>::from(NOT_AVAILABLE))),
         xc_managed: pl.get("IsXcodeManaged").and_then(plist::Value::as_boolean),
         xc_kind: match file.xc_kind {
             XcProvisioningProfileDirKind::Xc15 => Some("15-".into()),
@@ -132,8 +179,16 @@ fn parse_file(
                     .collect()
             })
         },
-        ent_app_id: ent.get("application-identifier").and_then(plist::Value::as_string).map(Rc::<str>::from).or_else(|| Some(Rc::<str>::from(NOT_AVAILABLE))),
-        ent_team_id: ent.get("com.apple.developer.team-identifier").and_then(plist::Value::as_string).map(Rc::<str>::from).or_else(|| Some(Rc::<str>::from(NOT_AVAILABLE))),
+        ent_app_id: ent
+            .get("application-identifier")
+            .and_then(plist::Value::as_string)
+            .map(Rc::<str>::from)
+            .or_else(|| Some(Rc::<str>::from(NOT_AVAILABLE))),
+        ent_team_id: ent
+            .get("com.apple.developer.team-identifier")
+            .and_then(plist::Value::as_string)
+            .map(Rc::<str>::from)
+            .or_else(|| Some(Rc::<str>::from(NOT_AVAILABLE))),
 
         exp_date: pl
             .get("ExpirationDate")
@@ -145,20 +200,63 @@ fn parse_file(
             .and_then(plist::Value::as_date)
             .map(SystemTime::from),
 
-        team_name: pl.get("TeamName").and_then(plist::Value::as_string).map(Rc::<str>::from),
-        provisioned_devices: Some(provisioned_devices),
+        team_name: pl
+            .get("TeamName")
+            .and_then(plist::Value::as_string)
+            .map(Rc::<str>::from),
+        provisioned_devices,
         provisioned_devices_count: Some(usize::MAX),
-        file_path: Rc::clone(&file.path),
-        uuid: pl.get("UUID").and_then(plist::Value::as_string).map(Rc::<str>::from).or_else(|| Some(Rc::<str>::from(NOT_AVAILABLE))),
+        file_path: file.path.clone(),
+        uuid: pl
+            .get("UUID")
+            .and_then(plist::Value::as_string)
+            .map(Rc::<str>::from)
+            .or_else(|| Some(Rc::<str>::from(NOT_AVAILABLE))),
         platforms: pl.get("Platform").and_then(|x| x.as_array()).map(|x| {
             x.iter()
                 .map(|x| Rc::<str>::from(x.as_string().unwrap_or(NOT_AVAILABLE)))
                 .collect::<Vec<_>>()
         }),
         properties: to_yaml_document(&pl),
+        developer_certificates_raw: {
+            let property = pl
+                .get("DeveloperCertificates")
+                .and_then(plist::Value::as_array);
+            if property.is_none() {
+                Vec::new()
+            } else {
+                let res = property
+                    .unwrap()
+                    .iter()
+                    .filter_map(|x| x.as_data())
+                    .map(|x| x.to_vec())
+                    .collect::<Vec<_>>();
+                res
+            }
+        },
+        developer_certificates: {
+            let property = pl
+                .get("DeveloperCertificates")
+                .and_then(plist::Value::as_array);
+            if property.is_none() {
+                Vec::new()
+            } else {
+                let res = property
+                    .unwrap()
+                    .iter()
+                    .filter_map(|x| x.as_data())
+                    .map(X509::from_der)
+                    .map(|x| match x {
+                        Ok(cert) => CertDetails::from_cert(&cert),
+                        Err(_) => CertDetails::error(),
+                    })
+                    .collect::<Vec<_>>();
+                res
+            }
+        },
     };
 
-    Ok(row)
+    Ok(Rc::new(row))
 }
 
 fn get_files_from_dirs(dirs: &[XcProvisioningProfileDir]) -> Vec<XcProvisioningProfileFile> {
@@ -171,10 +269,7 @@ fn get_files_from_dir(xc_dir: &XcProvisioningProfileDir) -> Vec<XcProvisioningPr
         Ok(dir) => dir
             .map(|dir_entry| dir_entry.unwrap().path())
             .filter_map(|path| {
-                if path
-                    .extension()
-                    .map_or(false, |ext| ext == "mobileprovision")
-                {
+                if path.extension().is_some_and(|ext| ext == "mobileprovision") {
                     Some(XcProvisioningProfileFile {
                         path: Rc::from(path),
                         xc_kind: xc_dir.kind,
@@ -188,7 +283,7 @@ fn get_files_from_dir(xc_dir: &XcProvisioningProfileDir) -> Vec<XcProvisioningPr
 }
 
 fn print_extended_table<'a>(
-    rows: impl Iterator<Item = Result<ProvisioningProfileFileData, ProvisioningProfileFileData>>,
+    rows: ProfilesCollection,
     _args: &ListExtendedArgs,
 ) {
     let mut table = comfy_table::Table::new();
@@ -221,7 +316,7 @@ fn print_extended_table<'a>(
                 .as_str(),
             row.xc_managed
                 .map_or(NOT_AVAILABLE, |x| if x { "Y" } else { "N" }),
-            &row.app_id_prefixes
+            &row.app_id_prefixes.clone()
                 .map(|x| x.join(", "))
                 .unwrap_or_default(),
             encode_to_yaml_str(&row.properties).as_str(),
@@ -302,4 +397,20 @@ fn to_yaml_document(pl: &plist::Dictionary) -> YamlDocument {
 
     #[allow(clippy::from_iter_instead_of_collect)]
     YamlDocument::from_iter(items)
+}
+
+// Helper: convert X509Name to a simple string like "CN=..., O=..., C=..."
+fn name_to_string(name: &openssl::x509::X509NameRef) -> String {
+    let mut parts = vec![];
+    for entry in name.entries() {
+        let obj = entry.object();
+        // try to fetch a short name for known OIDs, else use OID string
+        let asn1_object_ref = obj.to_string();
+        let key = obj.nid().short_name().unwrap_or(asn1_object_ref.as_str());
+        match entry.data().as_utf8() {
+            Ok(v) => parts.push(format!("{key}={v}")),
+            Err(_) => parts.push(format!("{key}=<binary>")),
+        }
+    }
+    parts.join(", ")
 }
