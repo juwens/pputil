@@ -13,10 +13,19 @@ key features:
 * sorting can be customized
 * interactive TUI mode with navigable table and detailed profile view
 
+Note:
+
+Single aspects of mobileprovision files can be extracted in relativ cumbersome manual steps with the cli-tools plutil, security and certtool. +
+Calling these tool in cascade for (potentially) hundreds of files would be not feasible.
+
+== Links
+
+* fundamentals of provisioning profiles structure and extraction: https://developer.apple.com/documentation/technotes/tn3125-inside-code-signing-provisioning-profiles
+
 == Roadmap
 
 * get it on brew
-** not yet possible due to brew rules `GitHub repository not notable enough (<30 forks, <30 watchers and <75 stars)`
+** not yet possible due to brew rules `GitHub repository not notable enough (&lt;30 forks, &lt;30 watchers and &lt;75 stars)`
 * add command to delete expired profiles
 * add import command to impot downloaded profile into the correct location (mimics the import by opening the profile in XC)
 
