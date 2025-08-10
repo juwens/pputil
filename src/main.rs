@@ -7,11 +7,14 @@
 )]
 
 use args::{ListExtendedArgs, XcProvisioningProfileDir, XcProvisioningProfileDirKind};
+use base64::Engine;
 use chrono::{DateTime, Local};
 use compact::print_compact_table;
 use der::{Decode, Tagged};
 use helpers::{ProvisioningProfileFileData, NOT_AVAILABLE};
+use itertools::Itertools;
 use openssl::x509::X509;
+use plist::Value;
 use std::fs::{self};
 use std::path::Path;
 use std::rc::Rc;
@@ -19,16 +22,17 @@ use std::time::SystemTime;
 use std::vec;
 
 use self::tui::tui_main::run_tui_mode;
-use crate::helpers::encode_to_yaml_str;
+use crate::helpers::{encode_to_yaml_str, UnwrapOrNa};
 use crate::types::ProfilesCollection;
 use crate::yml_types::{YamlDocument, YamlValue};
 
 mod args;
 mod compact;
 mod helpers;
+mod print_json;
 mod tui;
-mod yml_types;
 mod types;
+mod yml_types;
 
 struct XcProvisioningProfileFile {
     pub path: Rc<Path>,
@@ -76,21 +80,27 @@ fn main() -> Result<(), std::io::Error> {
 
     let args = args::get_processed_args();
 
-    println!();
-    println!("scanning directories:");
-    for dir in &args.actual_dirs() {
-        println!(
-            " * {} ({:?})",
-            dir.relative_path.to_string_lossy(),
-            dir.kind
-        );
+    match args.command {
+        args::Commands::Json => (),
+        _ => {
+            println!();
+            println!("scanning directories:");
+            for dir in &args.actual_dirs() {
+                println!(
+                    " * {} ({:?})",
+                    dir.relative_path.to_string_lossy(),
+                    dir.kind
+                );
+            }
+            println!();
+        }
     }
-    println!();
 
     let files = get_files_from_dirs(&args.actual_dirs());
     let file_data_rows = files.iter().map(parse_file).collect::<Vec<_>>();
 
     match args.command {
+        args::Commands::Json => print_json::print_json(file_data_rows),
         args::Commands::List(x) => print_compact_table(file_data_rows, &x),
         args::Commands::ListExtended(x) => print_extended_table(file_data_rows, &x),
         args::Commands::Tui(x) => {
@@ -115,23 +125,27 @@ fn parse_file(
                 file.path.to_string_lossy()
             ))),
             app_id_name: None,
-            team_name: None,
             xc_managed: None,
             xc_kind: None,
             app_id_prefixes: None,
             exp_date: None,
             ent_app_id: None,
+            entitlements_raw: None,
             provisioned_devices: vec![],
             provisioned_devices_count: None,
             file_path: Rc::clone(&file.path),
             local_provision: None,
-            uuid: None,
             properties: YamlDocument::new(),
             creation_date: None,
             ent_team_id: None,
             platforms: None,
             developer_certificates_raw: Vec::new(),
             developer_certificates: Vec::new(),
+            team_identifier: None,
+            team_name: None,
+            time_to_live: None,
+            uuid: None,
+            version: None,
         }));
     };
 
@@ -190,6 +204,16 @@ fn parse_file(
             .map(Rc::<str>::from)
             .or_else(|| Some(Rc::<str>::from(NOT_AVAILABLE))),
 
+        entitlements_raw: pl
+            .get("Entitlements")
+            .and_then(|x| x.as_dictionary())
+            .map(|dict| {
+                let mut map = serde_json::map::Map::new();
+                for (k, v) in dict.iter() {
+                    map.insert(k.to_owned(), to_json_value(v));
+                }
+                map
+            }),
         exp_date: pl
             .get("ExpirationDate")
             .and_then(plist::Value::as_date)
@@ -199,19 +223,9 @@ fn parse_file(
             .get("CreationDate")
             .and_then(plist::Value::as_date)
             .map(SystemTime::from),
-
-        team_name: pl
-            .get("TeamName")
-            .and_then(plist::Value::as_string)
-            .map(Rc::<str>::from),
         provisioned_devices,
         provisioned_devices_count: Some(usize::MAX),
         file_path: file.path.clone(),
-        uuid: pl
-            .get("UUID")
-            .and_then(plist::Value::as_string)
-            .map(Rc::<str>::from)
-            .or_else(|| Some(Rc::<str>::from(NOT_AVAILABLE))),
         platforms: pl.get("Platform").and_then(|x| x.as_array()).map(|x| {
             x.iter()
                 .map(|x| Rc::<str>::from(x.as_string().unwrap_or(NOT_AVAILABLE)))
@@ -254,6 +268,25 @@ fn parse_file(
                 res
             }
         },
+        team_identifier: pl
+            .get("TeamIdentifier")
+            .and_then(plist::Value::as_array)
+            .map(|x| {
+                x.iter()
+                    .map(|y| Value::as_string(y).unwrap_or_na())
+                    .collect_vec()
+            }),
+        team_name: pl
+            .get("TeamName")
+            .and_then(plist::Value::as_string)
+            .map(Rc::<str>::from),
+        time_to_live: pl.get("TimeToLive").and_then(|x| x.as_signed_integer()),
+        uuid: pl
+            .get("UUID")
+            .and_then(plist::Value::as_string)
+            .map(Rc::<str>::from)
+            .or_else(|| Some(Rc::<str>::from(NOT_AVAILABLE))),
+        version: pl.get("Version").and_then(|x| x.as_signed_integer()),
     };
 
     Ok(Rc::new(row))
@@ -282,10 +315,7 @@ fn get_files_from_dir(xc_dir: &XcProvisioningProfileDir) -> Vec<XcProvisioningPr
     }
 }
 
-fn print_extended_table<'a>(
-    rows: ProfilesCollection,
-    _args: &ListExtendedArgs,
-) {
+fn print_extended_table<'a>(rows: ProfilesCollection, _args: &ListExtendedArgs) {
     let mut table = comfy_table::Table::new();
     table.set_header(vec![
         "Profile",
@@ -316,7 +346,8 @@ fn print_extended_table<'a>(
                 .as_str(),
             row.xc_managed
                 .map_or(NOT_AVAILABLE, |x| if x { "Y" } else { "N" }),
-            &row.app_id_prefixes.clone()
+            &row.app_id_prefixes
+                .clone()
                 .map(|x| x.join(", "))
                 .unwrap_or_default(),
             encode_to_yaml_str(&row.properties).as_str(),
@@ -359,6 +390,36 @@ fn parse_mobileprovision_into_plist(
     Ok(dict)
 }
 
+fn to_json_value(val: &plist::Value) -> serde_json::Value {
+    match val {
+        plist::Value::String(x) => serde_json::Value::String(x.to_string()),
+        plist::Value::Integer(x) => serde_json::Value::Number(x.as_signed().unwrap().into()),
+        plist::Value::Boolean(x) => serde_json::Value::Bool(*x),
+        plist::Value::Date(x) => serde_json::Value::String(x.to_xml_format()),
+        plist::Value::Data(x) => serde_json::Value::String(base64::engine::general_purpose::STANDARD.encode(x)),
+        plist::Value::Array(x) => {
+            if x.len() <= 10 {
+                serde_json::Value::Array(x.iter().map(to_json_value).collect())
+            } else {
+                serde_json::Value::Array(vec![
+                    serde_json::Value::String(format!("count: {}", x.len())),
+                    serde_json::Value::String("(abbreviated)".to_string()),
+                ])
+            }
+        }
+        // plist::Value::Dictionary(x) => serde_json::Value::Mapping({
+        //     x.iter()
+        //         .map(|x| {
+        //             (
+        //                 to_yaml_value(&plist::Value::String(x.0.to_string())),
+        //                 to_yaml_value(x.1),
+        //             )
+        //         })
+        //         .collect()
+        // }),
+        _ => serde_json::Value::String(core::any::type_name_of_val(val).to_string()),
+    }
+}
 fn to_yaml_value(val: &plist::Value) -> serde_yml::Value {
     match val {
         plist::Value::String(x) => YamlValue::String(x.to_string()),

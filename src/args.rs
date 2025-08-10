@@ -1,6 +1,8 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use std::{ffi::OsString, path::PathBuf};
 
+use crate::args;
+
 const XC_16_DIR: &str = "~/Library/Developer/Xcode/UserData/Provisioning Profiles";
 const XC_15_DIR: &str = "~/Library/MobileDevice/Provisioning Profiles";
 
@@ -69,6 +71,7 @@ impl MyCliArgs {
 impl std::fmt::Debug for Commands {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Commands::Json => f.debug_tuple("Json").finish(),
             Commands::List(args) => f.debug_tuple("ListCompact").field(args).finish(),
             Commands::ListExtended(args) => f.debug_tuple("ListExtended").field(args).finish(),
             Commands::Tui(args) => f.debug_tuple("Tui").field(args).finish(),
@@ -135,6 +138,7 @@ pub enum Commands {
     /// interactive TUI mode with navigable table and detailed view
     #[command(name = "tui")]
     Tui(ListTuiArgs),
+    Json,
 }
 
 #[derive(Debug, ValueEnum, Clone)]

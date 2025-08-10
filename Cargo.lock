@@ -1007,6 +1007,7 @@ checksum = "439ee305def115ba05938db6eb1644ff94165c5ab5e9420d1c1bcedbba909391"
 name = "pputil"
 version = "1.1.13"
 dependencies = [
+ "base64 0.22.1",
  "chrono",
  "clap",
  "cms",
@@ -1025,6 +1026,7 @@ dependencies = [
  "queue",
  "ratatui",
  "serde",
+ "serde_json",
  "serde_yml",
  "shellexpand",
  "strum 0.27.2",
@@ -1179,6 +1181,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "serde_json"
+version = "1.0.142"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "030fedb782600dcbd6f02d479bf0d817ac3bb40d644745b769d6a96bc3afc5a7"
+dependencies = [
+ "itoa",
+ "memchr",
+ "ryu",
+ "serde",
 ]
 
 [[package]]
